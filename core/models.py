@@ -111,6 +111,18 @@ async def init_db() -> None:
         CREATE INDEX IF NOT EXISTS idx_tasks_is_active ON tasks(is_active);
         CREATE INDEX IF NOT EXISTS idx_friends_account_id ON friends(account_id);
         CREATE INDEX IF NOT EXISTS idx_logs_created_at ON logs(created_at);
+
+        CREATE TABLE IF NOT EXISTS message_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            account_id INTEGER NOT NULL,
+            friend_name TEXT NOT NULL,
+            message TEXT NOT NULL,
+            status TEXT DEFAULT 'success',
+            created_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_msg_history_account ON message_history(account_id);
+        CREATE INDEX IF NOT EXISTS idx_msg_history_created ON message_history(created_at);
     """)
 
     try:

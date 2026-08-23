@@ -4,6 +4,7 @@ import functools
 import hashlib
 import json
 import logging
+import os
 import re
 import secrets
 import time
@@ -148,6 +149,46 @@ class PageOperationError(RuntimeError):
 
 def _now() -> str:
     return datetime.now().astimezone().isoformat(timespec="seconds")
+
+
+_sent_today: dict[str, set[str]] = {}
+
+
+def _already_sent_today(friend_name: str) -> bool:
+    today = datetime.now().strftime("%Y-%m-%d")
+    return friend_name in _sent_today.get(today, set())
+
+
+def _mark_sent_today(friend_name: str):
+    today = datetime.now().strftime("%Y-%m-%d")
+    if today not in _sent_today:
+        _sent_today[today] = set()
+    _sent_today[today].add(friend_name)
+
+
+def generate_ai_message(friend_name: str, spark_days: int = 0, api_key: str | None = None, model: str = "gpt-4o-mini") -> str:
+    if not api_key:
+        api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        return f"和{friend_name}的每一天都很珍贵✨"
+
+    import requests
+
+    spark_text = f"已经是第{spark_days}天" if spark_days > 0 else ""
+    prompt = f"给好友「{friend_name}」写一条续火花消息，不超过20字，温暖有趣。{spark_text}"
+
+    try:
+        resp = requests.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={"model": model, "messages": [{"role": "user", "content": prompt}], "max_tokens": 50},
+            timeout=10
+        )
+        if resp.status_code == 200:
+            return resp.json()["choices"][0]["message"]["content"].strip()
+    except Exception:
+        pass
+    return f"和{friend_name}的每一天都很珍贵✨"
 
 
 def _normalize_cookies(cookies: list[Any]) -> list[dict[str, Any]]:
@@ -833,6 +874,9 @@ def run_send_task(
     cookies: list[dict[str, Any]] | None = None,
     storage_state: dict[str, Any] | None = None,
 ) -> tuple[bool, str]:
+    if _already_sent_today(friend_name):
+        return False, "今日已发送"
+
     if not cookies and not storage_state:
         return False, "未配置登录凭据"
 
@@ -870,6 +914,9 @@ def run_send_task(
             sticker_name=sticker_name,
             dry_run=dry_run,
         )
+
+        if success:
+            _mark_sent_today(friend_name)
 
         return success, reason
     except Exception as e:

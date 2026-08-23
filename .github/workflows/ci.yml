@@ -7,6 +7,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
-      - run: pip install -r requirements.txt
-      - run: python -m pytest tests/ -v || echo "No tests yet"
-      - run: docker build -t douyin-spark-fusion . || echo "Docker not available"
+      - run: pip install -r requirements.txt pytest pytest-asyncio httpx ruff --break-system-packages
+      - run: ruff check .
+      - run: python -m pytest tests/ -v --tb=short
+      - run: docker build -t douyin-spark-fusion . || echo "Docker not available in CI"
+      - run: pip install pytest-cov --break-system-packages
+      - run: python -m pytest tests/ --cov=core --cov=app --cov-report=xml
+      - uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+        continue-on-error: true

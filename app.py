@@ -26,6 +26,7 @@ from pydantic import BaseModel
 from core.automation import (
     check_login,
     fetch_chat_contacts,
+    generate_ai_message,
     message_hash,
     render_template,
     run_send_task,
@@ -871,9 +872,12 @@ async def send_message(req: Request, user: dict[str, Any] = Depends(require_user
 async def preview_template(req: Request, user: dict[str, Any] = Depends(require_user)):
     data = await req.json()
     template = str(data.get("template", ""))[:5000]
+    use_ai = bool(data.get("use_ai", False))
+    friend_name = str(data.get("friend", ""))
+    spark_days = int(data.get("spark_days", 100))
     context = {
         "account": str(data.get("account", "")),
-        "friend": str(data.get("friend", "")),
+        "friend": friend_name,
         "yiyan": str(data.get("yiyan", "人生苦短，及时行乐")),
         "from": str(data.get("from", "一言")),
         "date": datetime.now().strftime("%Y-%m-%d"),
@@ -887,9 +891,13 @@ async def preview_template(req: Request, user: dict[str, Any] = Depends(require_
             "星期六",
             "星期日",
         ][datetime.now().weekday()],
-        "spark_days": str(data.get("spark_days", "100")),
+        "spark_days": str(spark_days),
     }
-    rendered = render_template(template, context)
+    if use_ai and friend_name:
+        ai_message = generate_ai_message(friend_name, spark_days)
+        rendered = ai_message
+    else:
+        rendered = render_template(template, context)
     return {"rendered": rendered, "context": context}
 
 
