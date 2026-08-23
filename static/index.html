@@ -121,6 +121,12 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <a class="nav-item" :class="{active:page==='settings'}" @click="page='settings'">
 <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72 1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg></span>
 <span class="nav-label">设置</span></a>
+<a class="nav-item" v-if="user.is_admin" :class="{active:page==='admin-accounts'}" @click="page='admin-accounts'">
+<span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/><path d="M17 8h2m-2 4h2"/></svg></span>
+<span class="nav-label">账号管理</span></a>
+<a class="nav-item" v-if="user.is_admin" :class="{active:page==='admin-groups'}" @click="page='admin-groups'">
+<span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></span>
+<span class="nav-label">用户组</span></a>
 </nav>
 <div class="sidebar-footer">
 <div class="user-info">
@@ -139,7 +145,10 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <tasks-page v-if="page==='tasks'" :accounts="accountsList" :tasks="taskList" :friends="friendList" @refresh="loadTasks" @create="createTask" @delete="deleteTask" @run="runTask"></tasks-page>
 <history-page v-if="page==='history'" @refresh="loadHistory"></history-page>
 <status-page v-if="page==='status'"></status-page>
-<settings-page v-if="page==='settings'" @save="saveSettings"></settings-page>
+<admin-settings v-if="page==='settings'&&user.is_admin" @save="saveSettings"></admin-settings>
+<settings-page v-else-if="page==='settings'" @save="saveSettings"></settings-page>
+<admin-accounts v-if="page==='admin-accounts'" @refresh="loadAccounts"></admin-accounts>
+<admin-groups v-if="page==='admin-groups'"></admin-groups>
 </main>
 </div>
 <login-page v-else @login="onLogin"></login-page>
@@ -253,6 +262,37 @@ watch(()=>props.friends,(v)=>{if(v)friendOptions.value=v});
 return{showForm,form,cronPreset,cronHour,cronMin,selectedFriends,friendOptions,presets,toggle,selectAll,deselectAll,submit,onPreset}}})
 
 app.component('settings-page',{emits:['save'],template:`
+<div><h2 class="page-title">通知设置</h2>
+<div class="card mt-4"><h3 class="card-title">通知渠道</h3>
+<div class="mt-3" style="display:flex;flex-direction:column;gap:12px">
+<div v-for="ch in channels" :key="ch.key" style="display:flex;align-items:center;gap:12px;padding:10px;border:1px solid var(--border);border-radius:8px">
+<div style="display:flex;align-items:center;gap:8px;width:160px;flex-shrink:0">
+<label style="position:relative;display:inline-block;width:36px;height:20px;cursor:pointer">
+<input type="checkbox" v-model="chEn[ch.key]" :disabled="!settings[ch.key]" style="opacity:0;width:0;height:0;position:absolute"/>
+<span :style="{position:'absolute',top:0,left:0,right:0,bottom:0,background:chEn[ch.key]?'var(--green)':'var(--border)',borderRadius:'20px',transition:'.3s'}">
+<span :style="{position:'absolute',height:'14px',width:'14px',left:chEn[ch.key]?'19px':'3px',bottom:'3px',background:'#fff',borderRadius:'50%',transition:'.3s'}"></span></span>
+</label>
+<span style="font-weight:500;font-size:13px">{{ch.label}}</span>
+</div>
+<div v-for="f in ch.fields" :key="f.key" style="flex:1;min-width:0">
+<input v-model="settings[f.key]" :placeholder="f.placeholder" style="width:100%;font-size:12px"/>
+</div>
+<button class="btn-secondary btn-sm" @click="testChannel(ch)" :disabled="testing===ch.key" style="flex-shrink:0">{{testing===ch.key?'测试中...':'测试'}}</button>
+</div>
+</div>
+<button class="btn-primary mt-3" @click="save">保存设置</button></div>
+<div class="card mt-4"><h3 class="card-title">关于</h3><p class="text-muted mt-2">Douyin Spark Fusion v1.0.0</p><p class="text-muted">融合 23 个抖音火花项目的最佳实践</p></div></div>`,
+setup(props,{emit}){const settings=reactive({DINGTALK_WEBHOOK:'',FEISHU_WEBHOOK:'',WECOM_WEBHOOK:'',TELEGRAM_BOT_TOKEN:'',TELEGRAM_CHAT_ID:'',BARK_DEVICE_KEY:'',SMTP_HOST:'',SMTP_USER:'',SMTP_PASS:'',MAIL_TO:''});
+const chEn=reactive({dingtalk:true,feishu:true,wecom:true,telegram:true,bark:true,email:true});
+const testing=ref('');
+const channels=[{key:'dingtalk',label:'钉钉',fields:[{key:'DINGTALK_WEBHOOK',placeholder:'Webhook URL'}]},{key:'feishu',label:'飞书',fields:[{key:'FEISHU_WEBHOOK',placeholder:'Webhook URL'}]},{key:'wecom',label:'企业微信',fields:[{key:'WECOM_WEBHOOK',placeholder:'Webhook URL'}]},{key:'telegram',label:'Telegram',fields:[{key:'TELEGRAM_BOT_TOKEN',placeholder:'Bot Token'},{key:'TELEGRAM_CHAT_ID',placeholder:'Chat ID'}]},{key:'bark',label:'Bark',fields:[{key:'BARK_DEVICE_KEY',placeholder:'Device Key'}]},{key:'email',label:'邮件',fields:[{key:'SMTP_HOST',placeholder:'SMTP服务器'},{key:'SMTP_USER',placeholder:'SMTP账号'},{key:'SMTP_PASS',placeholder:'SMTP密码'},{key:'MAIL_TO',placeholder:'收件邮箱'}]}];
+const testChannel=async(ch)=>{testing.value=ch.key;try{const r=await api.post('/notify/test',{channel:ch.key});const app=document.getElementById('app').__vue_app__;const ctx=app._instance?.setupState||app._instance?.proxy;if(r.data?.success){if(ctx&&ctx.showToast)ctx.showToast(ch.label+' 测试通知已发送')}}catch(e){}finally{testing.value=''}};
+const save=()=>emit('save',settings);
+const load=async()=>{try{const r=await api.get('/settings');if(r.data?.notifications){Object.keys(settings).forEach(k=>{if(r.data.notifications[k]!==undefined)settings[k]=r.data.notifications[k]})}}catch(e){}};
+onMounted(()=>load());
+return{settings,chEn,channels,testing,testChannel,save}}});
+
+app.component('admin-settings',{emits:['save'],template:`
 <div><h2 class="page-title">系统设置</h2>
 <div class="card mt-4"><h3 class="card-title">通知渠道</h3>
 <div class="mt-3" style="display:flex;flex-direction:column;gap:12px">
@@ -271,14 +311,35 @@ app.component('settings-page',{emits:['save'],template:`
 <button class="btn-secondary btn-sm" @click="testChannel(ch)" :disabled="testing===ch.key" style="flex-shrink:0">{{testing===ch.key?'测试中...':'测试'}}</button>
 </div>
 </div>
-<button class="btn-primary mt-3" @click="$emit('save',settings)">保存设置</button></div>
-<div class="card mt-4"><h3 class="card-title">关于</h3><p class="text-muted mt-2">Douyin Spark Fusion v1.0.0</p><p class="text-muted">融合 23 个抖音火花项目的最佳实践</p></div></div>`,
+<button class="btn-primary mt-3" @click="saveNotifications">保存通知设置</button></div>
+<div class="card mt-4"><h3 class="card-title">系统参数</h3>
+<div class="mt-3" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+<div v-for="f in sysFields" :key="f.key"><label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px">{{f.label}}</label>
+<input v-if="f.type==='time'" v-model="sys[f.key]" type="time" style="width:100%"/>
+<input v-else-if="f.type==='bool'" type="checkbox" v-model="sys[f.key]" style="width:auto"/>
+<input v-else v-model.number="sys[f.key]" :type="f.type" style="width:100%"/>
+</div>
+</div>
+<button class="btn-primary mt-3" @click="saveSystem">保存系统参数</button></div>
+<div class="card mt-4"><h3 class="card-title">管理员密码</h3>
+<div class="mt-3" style="display:flex;gap:8px;align-items:center">
+<input v-model="newAdminPass" type="password" placeholder="新密码" style="flex:1"/>
+<button class="btn-primary" @click="changePass" :disabled="!newAdminPass">修改密码</button>
+</div></div>
+<div class="card mt-4"><h3 class="card-title">关于</h3><p class="text-muted mt-2">Douyin Spark Fusion v1.0.0</p></div></div>`,
 setup(props,{emit}){const settings=reactive({DINGTALK_WEBHOOK:'',FEISHU_WEBHOOK:'',WECOM_WEBHOOK:'',TELEGRAM_BOT_TOKEN:'',TELEGRAM_CHAT_ID:'',BARK_DEVICE_KEY:'',SMTP_HOST:'',SMTP_USER:'',SMTP_PASS:'',MAIL_TO:''});
+const sys=reactive({schedule_time:'21:00',jitter_minutes:30,send_gap_min:6,send_gap_max:12,max_friends_per_run:20,daily_limit:50,rate_limit_cooldown:45,retry_delay:45,allow_registration:true});
 const chEn=reactive({dingtalk:true,feishu:true,wecom:true,telegram:true,bark:true,email:true});
-const testing=ref('');
+const testing=ref(''),newAdminPass=ref('');
 const channels=[{key:'dingtalk',label:'钉钉',fields:[{key:'DINGTALK_WEBHOOK',placeholder:'Webhook URL'}]},{key:'feishu',label:'飞书',fields:[{key:'FEISHU_WEBHOOK',placeholder:'Webhook URL'}]},{key:'wecom',label:'企业微信',fields:[{key:'WECOM_WEBHOOK',placeholder:'Webhook URL'}]},{key:'telegram',label:'Telegram',fields:[{key:'TELEGRAM_BOT_TOKEN',placeholder:'Bot Token'},{key:'TELEGRAM_CHAT_ID',placeholder:'Chat ID'}]},{key:'bark',label:'Bark',fields:[{key:'BARK_DEVICE_KEY',placeholder:'Device Key'}]},{key:'email',label:'邮件',fields:[{key:'SMTP_HOST',placeholder:'SMTP服务器'},{key:'SMTP_USER',placeholder:'SMTP账号'},{key:'SMTP_PASS',placeholder:'SMTP密码'},{key:'MAIL_TO',placeholder:'收件邮箱'}]}];
+const sysFields=[{key:'schedule_time',label:'定时调度时间',type:'time'},{key:'jitter_minutes',label:'波动分钟数',type:'number'},{key:'send_gap_min',label:'发送间隔(最小)',type:'number'},{key:'send_gap_max',label:'发送间隔(最大)',type:'number'},{key:'max_friends_per_run',label:'每轮最大好友',type:'number'},{key:'daily_limit',label:'每日发送上限',type:'number'},{key:'rate_limit_cooldown',label:'限流冷却(分钟)',type:'number'},{key:'retry_delay',label:'重试延迟(分钟)',type:'number'},{key:'allow_registration',label:'允许注册',type:'bool'}];
 const testChannel=async(ch)=>{testing.value=ch.key;try{const r=await api.post('/notify/test',{channel:ch.key});const app=document.getElementById('app').__vue_app__;const ctx=app._instance?.setupState||app._instance?.proxy;if(r.data?.success){if(ctx&&ctx.showToast)ctx.showToast(ch.label+' 测试通知已发送')}}catch(e){}finally{testing.value=''}};
-return{settings,chEn,channels,testing,testChannel}}})
+const saveNotifications=()=>{const d={};Object.keys(settings).forEach(k=>{d[k]=settings[k]});emit('save',d)};
+const saveSystem=()=>{const d={};Object.keys(sys).forEach(k=>{d[k]=sys[k]});emit('save',d)};
+const changePass=async()=>{if(!newAdminPass.value)return;try{const r=await api.post('/settings',{admin_pass:newAdminPass.value});if(r.data?.success){const app=document.getElementById('app').__vue_app__;const ctx=app._instance?.setupState||app._instance?.proxy;if(ctx&&ctx.showToast)ctx.showToast('密码已修改');newAdminPass.value=''}}catch(e){}};
+const load=async()=>{try{const r=await api.get('/settings');if(r.data?.notifications){Object.keys(settings).forEach(k=>{if(r.data.notifications[k]!==undefined)settings[k]=r.data.notifications[k]})};if(r.data?.system){Object.keys(sys).forEach(k=>{if(r.data.system[k]!==undefined)sys[k]=r.data.system[k]})}}catch(e){}};
+onMounted(()=>load());
+return{settings,sys,chEn,channels,sysFields,testing,newAdminPass,testChannel,saveNotifications,saveSystem,changePass}}})
 
 app.component('history-page',{emits:['refresh'],template:`
 <div><div class="page-header"><h2 class="page-title">消息历史</h2><div class="header-actions"><input v-model="filterName" placeholder="筛选好友名称" style="width:200px" @input="onFilter"/><button class="btn-secondary" @click="refresh">刷新</button></div></div>
@@ -313,6 +374,65 @@ const statCards=computed(()=>[{key:'cpu',label:'CPU使用率',value:status.cpu_p
 const fetchStatus=async()=>{try{const r=await api.get('/status');if(r.data)Object.assign(status,r.data)}catch(e){}};
 onMounted(()=>{fetchStatus();setInterval(fetchStatus,30000)});
 return{status,statCards}}});
+
+app.component('admin-accounts',{emits:['refresh'],template:`
+<div><div class="page-header"><h2 class="page-title">账号管理</h2></div>
+<div class="card mt-4" style="padding:12px 16px">
+<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+<label class="friend-item" :class="{checked:allChecked}" style="font-size:12px;padding:4px 8px"><input type="checkbox" :checked="allChecked" @change="toggleAll" style="width:auto;margin:0"/> 全选</label>
+<button class="btn-danger btn-sm" @click="batchDelete" :disabled="checkedIds.length===0">删除选中 ({{checkedIds.length}})</button>
+<button class="btn-secondary btn-sm" @click="batchToggle(true)" :disabled="checkedIds.length===0">启用选中</button>
+<button class="btn-secondary btn-sm" @click="batchToggle(false)" :disabled="checkedIds.length===0">禁用选中</button>
+<input v-model="search" placeholder="搜索账号/用户" style="width:200px;margin-left:auto"/>
+</div></div>
+<div v-if="rows.length" class="card mt-4" style="padding:0"><table class="table"><thead><tr><th style="width:40px"></th><th>ID</th><th>所属用户</th><th>账号名</th><th>手机号</th><th>登录状态</th><th>活跃状态</th><th>操作</th></tr></thead><tbody><tr v-for="a in filtered" :key="a.id"><td><input type="checkbox" :checked="checkedIds.includes(a.id)" @change="toggleCheck(a.id)" style="width:auto;margin:0"/></td><td class="text-muted">{{a.id}}</td><td>{{a.owner_username||'—'}}</td><td>{{a.name}}</td><td class="text-muted">{{a.phone||'—'}}</td><td><span class="badge" :class="a.cookies&&a.cookies!=='[]'?'badge-green':'badge-amber'">{{a.cookies&&a.cookies!=='[]'?'已登录':'未登录'}}</span></td><td><span class="badge" :class="a.is_active!==0?'badge-green':'badge-red'">{{a.is_active!==0?'活跃':'已禁用'}}</span></td><td><div style="display:flex;gap:4px"><button class="btn-danger btn-sm" @click="delOne(a.id)">删除</button><button class="btn-secondary btn-sm" @click="toggleOne(a.id,a.is_active!==0)">{{a.is_active!==0?'禁用':'启用'}}</button></div></td></tr></tbody></table></div>
+<p v-else class="text-muted mt-4">暂无账号</p></div>`,
+setup(props,{emit}){const rows=ref([]),checkedIds=ref([]),search=ref('');
+const allChecked=computed(()=>{const f=filtered.value;return f.length>0&&f.every(a=>checkedIds.value.includes(a.id))});
+const load=async()=>{try{const r=await api.get('/admin/accounts');rows.value=r.data||[]}catch(e){}};
+const filtered=computed(()=>{if(!search.value)return rows.value;const s=search.value.toLowerCase();return rows.value.filter(a=>(a.name||'').toLowerCase().includes(s)||(a.owner_username||'').toLowerCase().includes(s)||(a.phone||'').includes(s))});
+const toggleCheck=id=>{if(checkedIds.value.includes(id))checkedIds.value=checkedIds.value.filter(i=>i!==id);else checkedIds.value=[...checkedIds.value,id]};
+const toggleAll=()=>{if(allChecked.value)checkedIds.value=[];else checkedIds.value=filtered.value.map(a=>a.id)};
+const batchDelete=async()=>{if(!confirm('确认删除'+checkedIds.value.length+'个账号？'))return;try{await api.post('/admin/accounts/batch-delete',{account_ids:checkedIds.value});checkedIds.value=[];emit('refresh');load();}catch(e){}};
+const batchToggle=async(active)=>{try{await api.post('/admin/accounts/batch-toggle',{account_ids:checkedIds.value,is_active:active});checkedIds.value=[];emit('refresh');load();}catch(e){}};
+const delOne=async(id)=>{if(!confirm('确认删除？'))return;try{await api.post('/admin/accounts/batch-delete',{account_ids:[id]});emit('refresh');load();}catch(e){}};
+const toggleOne=async(id,cur)=>{try{await api.post('/admin/accounts/batch-toggle',{account_ids:[id],is_active:!cur});emit('refresh');load();}catch(e){}};
+onMounted(()=>load());
+return{rows,checkedIds,search,allChecked,filtered,toggleCheck,toggleAll,batchDelete,batchToggle,delOne,toggleOne}}});
+
+app.component('admin-groups',{template:`
+<div><div class="page-header"><h2 class="page-title">用户组管理</h2></div>
+<div class="mt-4" style="display:flex;gap:16px">
+<div class="card" style="width:280px;flex-shrink:0;padding:0">
+<div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;gap:8px"><input v-model="newGroupName" placeholder="新建组名" style="flex:1" @keyup.enter="createGroup"/><button class="btn-primary btn-sm" @click="createGroup" :disabled="!newGroupName.trim()">新建</button></div>
+<div style="padding:8px"><div v-for="g in groups" :key="g.id" :class="{active:selectedGroup===g.id}" style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-radius:6px;cursor:pointer;transition:background .15s" :style="{background:selectedGroup===g.id?'var(--bg-hover)':''}" @click="selectGroup(g.id)">
+<span style="font-size:13px;font-weight:500">{{g.name}}</span>
+<div style="display:flex;gap:4px" v-if="selectedGroup===g.id"><button class="btn-secondary btn-sm" @click.stop="editGroup(g)">编辑</button><button class="btn-danger btn-sm" @click.stop="deleteGroup(g.id)">删除</button></div>
+</div></div>
+<p v-if="groups.length===0" class="text-muted" style="padding:12px 16px">暂无用户组</p>
+</div>
+<div class="card" style="flex:1;padding:0" v-if="selectedGroup">
+<div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px"><span style="font-weight:500">{{currentGroupName}} - 成员</span><div style="margin-left:auto;display:flex;gap:6px"><select v-model="addUserId" style="font-size:12px;padding:4px 8px"><option :value="0">添加用户</option><option v-for="u in allUsers" :key="u.id" :value="u.id">{{u.username}} {{u.is_admin?'(管理员)':''}}</option></select><button class="btn-primary btn-sm" @click="addUserToGroup" :disabled="!addUserId">添加</button></div></div>
+<table class="table" v-if="groupUsers.length"><thead><tr><th>ID</th><th>用户名</th><th>角色</th><th>操作</th></tr></thead><tbody><tr v-for="u in groupUsers" :key="u.id"><td class="text-muted">{{u.id}}</td><td>{{u.username}}</td><td><span class="badge" :class="u.is_admin?'badge-amber':'badge-green'">{{u.is_admin?'管理员':'用户'}}</span></td><td><button class="btn-danger btn-sm" @click="removeUser(u.id)">移出</button></td></tr></tbody></table>
+<p v-else class="text-muted" style="padding:12px 16px">暂无成员</p>
+</div>
+<div class="card" style="flex:1;padding:0" v-else><p class="text-muted" style="padding:12px 16px">选择左侧用户组查看成员</p></div>
+</div>
+<div v-if="showEdit" class="card mt-4" style="display:flex;gap:8px;align-items:center"><input v-model="editName" placeholder="组名" style="flex:1"/><button class="btn-primary btn-sm" @click="saveEdit" :disabled="!editName.trim()">保存</button><button class="btn-secondary btn-sm" @click="showEdit=false">取消</button></div></div>`,
+setup(){const groups=ref([]),allUsers=ref([]),groupUsers=ref([]),selectedGroup=ref(0),newGroupName=ref(''),addUserId=ref(0),showEdit=ref(false),editName=ref(''),editingId=ref(0);
+const currentGroupName=computed(()=>{const g=groups.value.find(g=>g.id===selectedGroup.value);return g?g.name:''});
+const loadGroups=async()=>{try{const r=await api.get('/admin/groups');groups.value=r.data||[]}catch(e){}};
+const loadAllUsers=async()=>{try{const r=await api.get('/admin/users');allUsers.value=r.data||[]}catch(e){}};
+const loadGroupUsers=async()=>{if(!selectedGroup.value)return;try{const r=await api.get('/admin/groups/'+selectedGroup.value+'/users');groupUsers.value=r.data||[]}catch(e){}};
+const selectGroup=id=>{selectedGroup.value=id;loadGroupUsers()};
+const createGroup=async()=>{if(!newGroupName.value.trim())return;try{await api.post('/admin/groups',{name:newGroupName.value.trim()});newGroupName.value='';loadGroups();}catch(e){}};
+const deleteGroup=async(id)=>{if(!confirm('确认删除该组？'))return;try{await api.del('/admin/groups/'+id);if(selectedGroup.value===id)selectedGroup.value=0;loadGroups();}catch(e){}};
+const editGroup=g=>{editingId.value=g.id;editName.value=g.name;showEdit.value=true};
+const saveEdit=async()=>{try{await api.put('/admin/groups/'+editingId.value,{name:editName.value.trim()});showEdit.value=false;loadGroups();loadGroupUsers();}catch(e){}};
+const addUserToGroup=async()=>{try{await api.put('/admin/users/'+addUserId.value+'/group',{group_id:selectedGroup.value});addUserId.value=0;loadGroupUsers();loadAllUsers();}catch(e){}};
+const removeUser=async(uid)=>{try{await api.put('/admin/users/'+uid+'/group',{group_id:0});loadGroupUsers();loadAllUsers();}catch(e){}};
+onMounted(()=>{loadGroups();loadAllUsers()});
+return{groups,allUsers,groupUsers,selectedGroup,newGroupName,addUserId,showEdit,editName,editingId,currentGroupName,selectGroup,createGroup,deleteGroup,editGroup,saveEdit,addUserToGroup,removeUser}}});
 
 app.mount('#app')
 </script>

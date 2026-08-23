@@ -33,8 +33,6 @@ from core.automation import (
     run_send_task,
 )
 from core.config import (
-    load_config,
-    save_config,
     settings,
 )
 from core.metrics import get_memory_usage, get_metrics
@@ -62,6 +60,7 @@ _sessions: dict[str, dict[str, Any]] = {}
 
 _rate_limit_store: dict[str, list[float]] = {}
 _executor = ThreadPoolExecutor(max_workers=2)
+APP_START_TIME = time.time()
 
 
 def app_error(code: str, status_code: int, message: str) -> HTTPException:
@@ -305,6 +304,7 @@ async def health_check():
         "db": db_status,
         "playwright": playwright_status,
         "memory_mb": round(get_memory_usage(), 1),
+        "uptime_seconds": int(time.time() - APP_START_TIME),
     }
 
 
@@ -361,7 +361,11 @@ async def system_status():
     cpu = psutil.cpu_percent(interval=0.1)
     mem = psutil.virtual_memory()
     disk = psutil.disk_usage("/")
-    uptime = time.time() - psutil.boot_time()
+    uptime = time.time() - APP_START_TIME
+    days = int(uptime // 86400)
+    hours = int((uptime % 86400) // 3600)
+    minutes = int((uptime % 3600) // 60)
+    uptime_display = f"{days}天{hours}小时{minutes}分" if days > 0 else f"{hours}小时{minutes}分"
 
     db = await get_db()
     today_sent = await db.execute_fetchall(
@@ -420,6 +424,7 @@ async def system_status():
         "disk_percent": disk.percent,
         "disk_free_gb": round(disk.free / 1024**3, 2),
         "uptime_hours": round(uptime / 3600, 1),
+        "uptime_display": uptime_display,
         "today_sent": today_sent[0]["c"] if today_sent else 0,
         "today_total": today_total[0]["c"] if today_total else 0,
         "rate_limited": rate_limited[0]["c"] if rate_limited else 0,
@@ -1386,52 +1391,77 @@ async def list_logs(limit: int = 50, user: dict[str, Any] = Depends(require_user
     description="Retrieve current system configuration settings",
 )
 async def get_settings(user: dict[str, Any] = Depends(require_user)):
-    cfg = load_config()
-    return {
-        "schedule_time": cfg.get("schedule_time", "21:00"),
-        "jitter_minutes": cfg.get("jitter_minutes", 30),
-        "send_gap_min": cfg.get("send_gap_min", 6),
-        "send_gap_max": cfg.get("send_gap_max", 12),
-        "max_friends_per_run": cfg.get("max_friends_per_run", 20),
-        "daily_limit": cfg.get("daily_limit", 50),
-        "rate_limit_cooldown_minutes": cfg.get("rate_limit_cooldown_minutes", 45),
-        "retry_delay_minutes": cfg.get("retry_delay_minutes", 45),
-        "allow_registration": getattr(settings, "allow_registration", True),
-    }
+    db = await get_db()
+    rows = await db.execute_fetchall("SELECT key, value FROM settings")
+    await db.close()
+    all_settings = {r["key"]: r["value"] for r in rows}
+
+    notify_keys = [
+        "DINGTALK_WEBHOOK", "FEISHU_WEBHOOK", "WECOM_WEBHOOK",
+        "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "BARK_DEVICE_KEY",
+        "SMTP_HOST", "SMTP_USER", "SMTP_PASS", "MAIL_TO",
+    ]
+    notifications = {k: all_settings.get(f"notify_{k}", "") for k in notify_keys}
+
+    result = {"notifications": notifications}
+    if user.get("is_admin"):
+        result["system"] = {
+            "schedule_time": all_settings.get("global_schedule_time", "21:00"),
+            "jitter_minutes": int(all_settings.get("global_jitter_minutes", "30")),
+            "send_gap_min": int(all_settings.get("global_send_gap_min", "6")),
+            "send_gap_max": int(all_settings.get("global_send_gap_max", "12")),
+            "max_friends_per_run": int(all_settings.get("global_max_friends_per_run", "20")),
+            "daily_limit": int(all_settings.get("global_daily_limit", "50")),
+            "rate_limit_cooldown": int(all_settings.get("global_rate_limit_cooldown", "45")),
+            "retry_delay": int(all_settings.get("global_retry_delay", "45")),
+            "allow_registration": all_settings.get("global_allow_registration", "true") == "true",
+        }
+    return result
 
 
 @app.post(
     "/api/settings",
     tags=["settings"],
     summary="Update settings",
-    description="Update system configuration settings (admin only)",
+    description="Update notification settings (any user) or system settings (admin only)",
 )
-async def update_settings(req: Request, user: dict[str, Any] = Depends(require_admin)):
+async def update_settings(req: Request, user: dict[str, Any] = Depends(require_user)):
     data = await req.json()
-    cfg = load_config()
-    for key in (
-        "schedule_time",
-        "jitter_minutes",
-        "send_gap_min",
-        "send_gap_max",
-        "max_friends_per_run",
-        "daily_limit",
-        "rate_limit_cooldown_minutes",
-        "retry_delay_minutes",
-    ):
-        if key in data:
-            cfg[key] = data[key]
-    save_config(cfg)
+    db = await get_db()
 
-    if data.get("admin_pass"):
-        db = await get_db()
-        await db.execute(
-            "UPDATE users SET password_hash=? WHERE username='admin'",
-            (hash_password(data["admin_pass"]),),
-        )
-        await db.commit()
-        await db.close()
+    notify_keys = [
+        "DINGTALK_WEBHOOK", "FEISHU_WEBHOOK", "WECOM_WEBHOOK",
+        "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "BARK_DEVICE_KEY",
+        "SMTP_HOST", "SMTP_USER", "SMTP_PASS", "MAIL_TO",
+    ]
+    for k in notify_keys:
+        if k in data:
+            await db.execute(
+                "INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=?",
+                (f"notify_{k}", str(data[k]), str(data[k])),
+            )
 
+    if user.get("is_admin"):
+        sys_keys = [
+            "schedule_time", "jitter_minutes", "send_gap_min", "send_gap_max",
+            "max_friends_per_run", "daily_limit", "rate_limit_cooldown",
+            "retry_delay", "allow_registration",
+        ]
+        for k in sys_keys:
+            if k in data:
+                await db.execute(
+                    "INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=?",
+                    (f"global_{k}", str(data[k]), str(data[k])),
+                )
+
+        if data.get("admin_pass"):
+            await db.execute(
+                "UPDATE users SET password_hash=? WHERE username='admin'",
+                (hash_password(data["admin_pass"]),),
+            )
+
+    await db.commit()
+    await db.close()
     return {"success": True}
 
 
@@ -1526,6 +1556,116 @@ async def delete_user(user_id: int, user: dict[str, Any] = Depends(require_admin
     await db.execute("DELETE FROM logs WHERE user_id=?", (user_id,))
     await db.execute("DELETE FROM history WHERE user_id=?", (user_id,))
     await db.execute("DELETE FROM users WHERE id=?", (user_id,))
+    await db.commit()
+    await db.close()
+    return {"success": True}
+
+
+# ── Admin Batch Account Management ──────────────────────────
+
+
+@app.get("/api/admin/accounts", tags=["admin"])
+async def admin_accounts(user: dict = Depends(require_admin)):
+    db = await get_db()
+    rows = await db.execute_fetchall("""
+        SELECT a.*, u.username as owner_username
+        FROM accounts a LEFT JOIN users u ON a.user_id = u.id
+        ORDER BY a.id DESC
+    """)
+    await db.close()
+    return [dict(r) for r in rows]
+
+
+@app.post("/api/admin/accounts/batch-delete", tags=["admin"])
+async def admin_batch_delete(req: Request, user: dict = Depends(require_admin)):
+    data = await req.json()
+    ids = data.get("account_ids", [])
+    if not ids:
+        raise HTTPException(400, "请选择账号")
+    db = await get_db()
+    placeholders = ",".join("?" * len(ids))
+    await db.execute(f"DELETE FROM accounts WHERE id IN ({placeholders})", ids)
+    await db.commit()
+    await db.close()
+    return {"success": True, "deleted": len(ids)}
+
+
+@app.post("/api/admin/accounts/batch-toggle", tags=["admin"])
+async def admin_batch_toggle(req: Request, user: dict = Depends(require_admin)):
+    data = await req.json()
+    ids = data.get("account_ids", [])
+    active = data.get("is_active", True)
+    if not ids:
+        raise HTTPException(400, "请选择账号")
+    db = await get_db()
+    placeholders = ",".join("?" * len(ids))
+    await db.execute(f"UPDATE accounts SET is_active=? WHERE id IN ({placeholders})", [1 if active else 0] + ids)
+    await db.commit()
+    await db.close()
+    return {"success": True, "updated": len(ids)}
+
+
+# ── Admin User Group Management ─────────────────────────────
+
+
+@app.get("/api/admin/groups", tags=["admin"])
+async def admin_groups(user: dict = Depends(require_admin)):
+    db = await get_db()
+    rows = await db.execute_fetchall("SELECT * FROM groups ORDER BY id")
+    await db.close()
+    return [dict(r) for r in rows]
+
+
+@app.post("/api/admin/groups", tags=["admin"])
+async def admin_create_group(req: Request, user: dict = Depends(require_admin)):
+    data = await req.json()
+    name = data.get("name", "").strip()
+    if not name:
+        raise HTTPException(400, "组名不能为空")
+    db = await get_db()
+    await db.execute("INSERT INTO groups(name) VALUES(?)", (name,))
+    await db.commit()
+    await db.close()
+    return {"success": True}
+
+
+@app.put("/api/admin/groups/{group_id}", tags=["admin"])
+async def admin_update_group(group_id: int, req: Request, user: dict = Depends(require_admin)):
+    data = await req.json()
+    name = data.get("name", "").strip()
+    if not name:
+        raise HTTPException(400, "组名不能为空")
+    db = await get_db()
+    await db.execute("UPDATE groups SET name=? WHERE id=?", (name, group_id))
+    await db.commit()
+    await db.close()
+    return {"success": True}
+
+
+@app.delete("/api/admin/groups/{group_id}", tags=["admin"])
+async def admin_delete_group(group_id: int, user: dict = Depends(require_admin)):
+    db = await get_db()
+    await db.execute("UPDATE users SET group_id=0 WHERE group_id=?", (group_id,))
+    await db.execute("DELETE FROM groups WHERE id=?", (group_id,))
+    await db.commit()
+    await db.close()
+    return {"success": True}
+
+
+@app.get("/api/admin/groups/{group_id}/users", tags=["admin"])
+async def admin_group_users(group_id: int, user: dict = Depends(require_admin)):
+    db = await get_db()
+    rows = await db.execute_fetchall("SELECT id, username, is_admin FROM users WHERE group_id=?", (group_id,))
+    await db.close()
+    return [dict(r) for r in rows]
+
+
+@app.put("/api/admin/users/{user_id}/group", tags=["admin"])
+async def admin_user_group(user_id: int, req: Request, user: dict = Depends(require_admin)):
+    data = await req.json()
+    group_id = data.get("group_id", 0)
+    db = await get_db()
+    await db.execute("UPDATE users SET group_id=? WHERE id=?", (group_id, user_id))
     await db.commit()
     await db.close()
     return {"success": True}
