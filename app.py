@@ -21,6 +21,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from core.automation import (
@@ -264,6 +265,9 @@ async def rate_limit_middleware(request: Request, call_next):
             content={"code": "RATE_001", "message": "请求过于频繁，请稍后再试"},
         )
     return await call_next(request)
+
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 @app.get("/metrics")
