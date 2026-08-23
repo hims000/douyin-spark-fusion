@@ -1,588 +1,264 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="light">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Douyin Spark Fusion</title>
-<link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
-<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-<script src="https://unpkg.com/element-plus"></script>
-<script src="https://unpkg.com/@element-plus/icons-vue"></script>
-<script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+<script src="https://unpkg.com/vue@3.5/dist/vue.global.prod.js"></script>
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-:root {
-  --bg: #f5f7fa;
-  --card-bg: #fff;
-  --card-shadow: 0 1px 3px rgba(0,0,0,0.08);
-  --text: #303133;
-  --text-secondary: #606266;
-  --text-muted: #909399;
-  --header-bg: #1d1d1f;
-  --sidebar-bg: #fff;
-  --sidebar-border: #e4e7ed;
-  --sidebar-hover-bg: #f5f7fa;
-  --sidebar-active-bg: #ecf5ff;
-  --sidebar-active-color: #409eff;
-  --login-bg: #fff;
-  --login-shadow: 0 4px 20px rgba(0,0,0,0.08);
-}
-[data-theme="dark"] {
-  --bg: #1a1a2e;
-  --card-bg: #16213e;
-  --card-shadow: 0 1px 3px rgba(0,0,0,0.3);
-  --text: #e0e0e0;
-  --text-secondary: #a0a0a0;
-  --text-muted: #707070;
-  --header-bg: #0f0f23;
-  --sidebar-bg: #16213e;
-  --sidebar-border: #2a2a4a;
-  --sidebar-hover-bg: #1a1a3e;
-  --sidebar-active-bg: #1a3a5e;
-  --sidebar-active-color: #66b1ff;
-  --login-bg: #16213e;
-  --login-shadow: 0 4px 20px rgba(0,0,0,0.3);
-}
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); }
-#app { min-height: 100vh; }
-.header { background: var(--header-bg); color: #fff; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 56px; }
-.header h1 { font-size: 18px; font-weight: 600; }
-.header .user-area { display: flex; align-items: center; gap: 12px; }
-.header .theme-toggle { background: none; border: 1px solid rgba(255,255,255,0.3); color: #fff; cursor: pointer; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; }
-.header .theme-toggle:hover { background: rgba(255,255,255,0.1); }
-.layout { display: flex; height: calc(100vh - 56px); }
-.sidebar { width: 200px; background: var(--sidebar-bg); border-right: 1px solid var(--sidebar-border); padding: 12px 0; }
-.sidebar .menu-item { padding: 12px 24px; cursor: pointer; color: var(--text-secondary); font-size: 14px; display: flex; align-items: center; gap: 8px; border-left: 3px solid transparent; }
-.sidebar .menu-item:hover { background: var(--sidebar-hover-bg); color: var(--sidebar-active-color); }
-.sidebar .menu-item.active { color: var(--sidebar-active-color); background: var(--sidebar-active-bg); border-left-color: var(--sidebar-active-color); font-weight: 600; }
-.main { flex: 1; overflow-y: auto; padding: 24px; }
-.page-title { font-size: 20px; font-weight: 600; margin-bottom: 20px; color: var(--text); }
-.stats-row { display: flex; gap: 16px; margin-bottom: 24px; }
-.stat-card { flex: 1; background: var(--card-bg); padding: 20px; border-radius: 8px; box-shadow: var(--card-shadow); }
-.stat-card .label { font-size: 13px; color: var(--text-muted); }
-.stat-card .value { font-size: 28px; font-weight: 700; color: var(--text); margin-top: 4px; }
-.card { background: var(--card-bg); border-radius: 8px; padding: 24px; box-shadow: var(--card-shadow); margin-bottom: 16px; }
-.card-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; color: var(--text); }
-.login-container { max-width: 400px; margin: 80px auto; padding: 40px; background: var(--login-bg); border-radius: 12px; box-shadow: var(--login-shadow); }
-.login-container h2 { text-align: center; margin-bottom: 32px; color: var(--text); }
+:root{--bg:#fafafa;--bg-card:#fff;--bg-hover:#f5f5f5;--border:#e5e5e5;--text:#0a0a0a;--text-muted:#737373;--accent:#0a0a0a;--green:#16a34a;--red:#dc2626;--amber:#d97706;--radius:8px}
+[data-theme="dark"]{--bg:#0a0a0a;--bg-card:#1a1a1a;--bg-hover:#262626;--border:#333;--text:#fafafa;--text-muted:#a3a3a3;--accent:#fafafa}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:Inter,-apple-system,sans-serif;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+input,button,textarea,select{font-family:inherit;font-size:inherit;color:inherit}
+input,select{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;outline:none;transition:border-color .15s,box-shadow .15s}
+input:focus,select:focus{border-color:var(--text);box-shadow:0 0 0 3px rgba(0,0,0,.06)}
+button{cursor:pointer;border:none;border-radius:var(--radius);padding:8px 16px;font-weight:500;font-size:13px;transition:all .15s}
+button:active{transform:scale(.97)}
+button:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary{background:var(--text);color:var(--bg)}.btn-primary:hover{background:var(--text-muted)}
+.btn-secondary{background:var(--bg-card);color:var(--text);border:1px solid var(--border)}.btn-secondary:hover{background:var(--bg-hover)}
+.btn-danger{background:transparent;color:var(--red);border:1px solid rgba(220,38,38,.3)}.btn-danger:hover{background:var(--red);color:#fff}
+.btn-sm{padding:4px 12px;font-size:12px}
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500}
+.badge-green{background:rgba(22,163,74,.08);color:var(--green)}
+.badge-red{background:rgba(220,38,38,.08);color:var(--red)}
+.badge-amber{background:rgba(217,119,6,.08);color:var(--amber)}
+.table{width:100%;border-collapse:collapse}
+.table th,.table td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--border)}
+.table th{color:var(--text-muted);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+.table tbody tr{transition:background .1s}.table tbody tr:hover td{background:var(--bg-hover)}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.stagger-item{animation:fadeInUp .3s ease both}
+.app-shell{display:flex;min-height:100vh}
+.sidebar{width:200px;min-height:100vh;background:var(--bg-card);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:0 12px;flex-shrink:0}
+.logo{padding:20px 12px 16px;font-size:16px;font-weight:600;letter-spacing:-.02em;cursor:pointer;user-select:none}
+.nav-links{flex:1;display:flex;flex-direction:column;gap:1px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;color:var(--text-muted);text-decoration:none;font-size:13px;transition:all .15s;cursor:pointer}
+.nav-item:hover{background:var(--bg-hover);color:var(--text)}
+.nav-item.active{background:var(--bg-hover);color:var(--text)}
+.nav-icon{display:flex;align-items:center;flex-shrink:0;opacity:.6}
+.nav-item:hover .nav-icon,.nav-item.active .nav-icon{opacity:1}
+.nav-icon svg{width:16px;height:16px}
+.sidebar-footer{padding:12px 0;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:2px}
+.user-info{padding:4px 12px 8px;display:flex;flex-direction:column}
+.user-role{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em}
+.user-name{font-size:13px}
+.main-content{flex:1;padding:32px 40px;overflow-y:auto;max-width:1024px}
+.page-title{font-size:18px;font-weight:600;letter-spacing:-.02em}
+.page-header{display:flex;justify-content:space-between;align-items:center}
+.header-actions{display:flex;gap:8px}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:24px}
+.stat-card{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:20px;animation:fadeInUp .4s ease both;transition:transform .2s,box-shadow .2s,border-color .2s}
+.stat-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.06);border-color:#d4d4d4}
+.stat-value{font-size:28px;font-weight:600;letter-spacing:-.02em}
+.stat-label{color:var(--text-muted);font-size:13px;margin-top:4px}
+.card-title{font-size:14px;font-weight:600}
+.mt-2{margin-top:8px}.mt-3{margin-top:12px}.mt-4{margin-top:16px}.mt-6{margin-top:24px}
+.mb-4{margin-bottom:16px}
+.text-muted{color:var(--text-muted)}.text-green{color:var(--green)}.text-red{color:var(--red)}
+.friend-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
+.friend-card{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;transition:transform .15s,box-shadow .15s,border-color .15s}
+.friend-card:hover{transform:translateY(-1px);box-shadow:0 2px 8px rgba(0,0,0,.05);border-color:#d4d4d4}
+.friend-row{display:flex;justify-content:space-between;align-items:center}
+.friend-name{font-weight:500;font-size:14px}
+.friend-meta{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.form-grid{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.cron-picker{display:flex;gap:6px;align-items:center}
+.time-input{width:50px;text-align:center}
+.full-width{flex:1;min-width:200px}
+.friend-header{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.friend-item{display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:13px;transition:all .15s}
+.friend-item.checked{background:var(--bg-hover);border-color:var(--text)}
+.friend-item input[type=checkbox]{width:auto;margin:0}
+.result{font-size:12px;margin-top:4px}
+.login-page{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);position:relative;overflow:hidden}
+.login-card{width:320px;position:relative;animation:cardIn .5s cubic-bezier(.16,1,.3,1) both}
+@keyframes cardIn{from{opacity:0;transform:translateY(16px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+.brand{font-size:32px;font-weight:600;letter-spacing:-.04em;text-align:center;margin-bottom:36px}
+.form{display:flex;flex-direction:column;gap:10px}
+.form input{width:100%;padding:10px 14px}
+.form button{width:100%;padding:10px;min-height:40px;display:flex;align-items:center;justify-content:center}
+.toggle{text-align:center;margin-top:24px;font-size:13px}
+.toggle a{color:var(--text-muted);cursor:pointer;transition:color .15s}
+.toggle a:hover{color:var(--text)}
+.error{text-align:center;color:var(--red);margin-top:16px;font-size:13px}
+.theme-toggle{position:fixed;bottom:20px;right:20px;width:36px;height:36px;border-radius:50%;background:var(--bg-card);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;z-index:100;transition:all .15s}
+.theme-toggle:hover{transform:scale(1.1)}
+.toast{position:fixed;top:20px;right:20px;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:500;z-index:200;animation:slideIn .3s ease;box-shadow:0 4px 12px rgba(0,0,0,.1)}
+.toast-success{background:var(--green);color:#fff}
+.toast-error{background:var(--red);color:#fff}
+@keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+@media(max-width:768px){.app-shell{flex-direction:column}.sidebar{width:100%;min-height:auto;flex-direction:row;align-items:center;padding:0 8px;border-right:none;border-bottom:1px solid var(--border);overflow-x:auto}.logo{padding:12px 8px;font-size:14px;flex-shrink:0}.nav-links{flex-direction:row;flex:1;gap:0}.nav-item{padding:10px 10px;font-size:12px;gap:4px;white-space:nowrap}.nav-label{display:none}.nav-icon{opacity:1}.sidebar-footer{padding:0;border-top:none;flex-shrink:0;flex-direction:row}.sidebar-footer .nav-label{display:none}.user-info{display:none}.main-content{padding:16px;max-width:100%}.stats-grid{grid-template-columns:repeat(2,1fr);gap:8px}.friend-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <div id="app">
-  <div v-if="!token" class="login-container">
-    <h2>Douyin Spark Fusion</h2>
-    <el-tabs v-model="loginTab" stretch>
-      <el-tab-pane label="登录" name="login">
-        <el-form @submit.prevent="doLogin">
-          <el-form-item><el-input v-model="loginForm.username" placeholder="用户名" prefix-icon="User" /></el-form-item>
-          <el-form-item><el-input v-model="loginForm.password" type="password" placeholder="密码" show-password prefix-icon="Lock" /></el-form-item>
-          <el-form-item><el-button type="primary" @click="doLogin" :loading="loading" style="width:100%">登录</el-button></el-form-item>
-        </el-form>
-      </el-tab-pane>
-      <el-tab-pane label="注册" name="register">
-        <el-form @submit.prevent="doRegister">
-          <el-form-item><el-input v-model="regForm.username" placeholder="用户名" /></el-form-item>
-          <el-form-item><el-input v-model="regForm.password" type="password" placeholder="密码" show-password /></el-form-item>
-          <el-form-item><el-button type="success" @click="doRegister" :loading="loading" style="width:100%">注册</el-button></el-form-item>
-        </el-form>
-      </el-tab-pane>
-    </el-tabs>
-    <el-divider />
-    <p style="text-align:center;color:#909399;font-size:12px">默认管理员: admin / spark2024</p>
-  </div>
-
-  <div v-else>
-    <div class="header">
-      <h1>Douyin Spark Fusion</h1>
-      <div class="user-area">
-        <button class="theme-toggle" @click="toggleTheme" :title="isDark ? '切换亮色模式' : '切换暗色模式'">{{ isDark ? '&#9728;' : '&#9790;' }}</button>
-        <el-tag>{{ user.username }} {{ user.is_admin ? '(管理员)' : '' }}</el-tag>
-        <el-button text @click="logout" style="color:#fff">退出</el-button>
-      </div>
-    </div>
-    <div class="layout">
-      <div class="sidebar">
-        <div v-for="m in menu" :key="m.key" class="menu-item" :class="{active: page === m.key}" @click="page = m.key">
-          <el-icon><component :is="m.icon" /></el-icon> {{ m.label }}
-        </div>
-      </div>
-      <div class="main">
-        <div v-if="page === 'dashboard'" key="dashboard">
-          <div class="page-title">仪表盘</div>
-          <div class="stats-row">
-            <div class="stat-card"><div class="label">账号数</div><div class="value">{{ stats.accounts }}</div></div>
-            <div class="stat-card"><div class="label">活跃任务</div><div class="value">{{ stats.tasks }}</div></div>
-            <div class="stat-card"><div class="label">好友数</div><div class="value">{{ stats.friends }}</div></div>
-            <div class="stat-card"><div class="label">今日发送</div><div class="value">{{ stats.today_sent }}</div></div>
-          </div>
-          <div class="card">
-            <div class="card-title">最近日志</div>
-            <el-table :data="recentLogs" size="small" max-height="300">
-              <el-table-column prop="created_at" label="时间" width="170" />
-              <el-table-column prop="status" label="状态" width="80">
-                <template #default="{row}"><el-tag :type="row.status==='success'?'success':'danger'" size="small">{{ row.status }}</el-tag></template>
-              </el-table-column>
-              <el-table-column prop="message" label="详情" show-overflow-tooltip />
-            </el-table>
-          </div>
-        </div>
-
-        <div v-if="page === 'accounts'" key="accounts">
-          <div class="page-title">账号管理</div>
-          <el-button type="primary" @click="showAccountDialog = true" style="margin-bottom:16px">添加账号</el-button>
-          <el-table :data="accounts" size="small">
-            <el-table-column prop="id" label="ID" width="60" />
-            <el-table-column prop="name" label="名称" />
-            <el-table-column prop="phone" label="手机/抖音号" />
-            <el-table-column label="Cookie" width="100">
-              <template #default="{row}">
-                <el-tag :type="row.cookies && row.cookies !== '[]' ? 'success' : 'info'" size="small">{{ row.cookies && row.cookies !== '[]' ? '已配置' : '未配置' }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column label="StorageState" width="110">
-              <template #default="{row}">
-                <el-tag :type="row.storage_state ? 'success' : 'info'" size="small">{{ row.storage_state ? '已配置' : '未配置' }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column label="操作" width="350">
-              <template #default="{row}">
-                <el-button size="small" @click="openCookieUpload(row)">上传Cookie</el-button>
-                <el-button size="small" @click="openStateUpload(row)">上传State</el-button>
-                <el-button size="small" type="warning" @click="verifyLogin(row)">验证登录</el-button>
-                <el-button size="small" type="danger" @click="deleteAccount(row.id)">删除</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-
-          <el-dialog v-model="showAccountDialog" title="添加账号" width="400px">
-            <el-form>
-              <el-form-item label="名称"><el-input v-model="newAccount.name" placeholder="账号显示名称" /></el-form-item>
-              <el-form-item label="手机/抖音号"><el-input v-model="newAccount.phone" placeholder="可选" /></el-form-item>
-            </el-form>
-            <template #footer>
-              <el-button @click="showAccountDialog = false">取消</el-button>
-              <el-button type="primary" @click="createAccount">确定</el-button>
-            </template>
-          </el-dialog>
-
-          <el-dialog v-model="showCookieDialog" title="上传 Cookie" width="500px">
-            <el-input v-model="cookieInput" type="textarea" :rows="10" placeholder='粘贴 Cookie JSON 数组，例如：[{"name":"sessionid","value":"xxx","domain":".douyin.com"}]' />
-            <template #footer>
-              <el-button @click="showCookieDialog = false">取消</el-button>
-              <el-button type="primary" @click="uploadCookie">上传</el-button>
-            </template>
-          </el-dialog>
-
-          <el-dialog v-model="showStateDialog" title="上传 StorageState" width="500px">
-            <el-input v-model="stateInput" type="textarea" :rows="10" placeholder='粘贴 StorageState JSON 对象（从浏览器导出的完整状态）' />
-            <template #footer>
-              <el-button @click="showStateDialog = false">取消</el-button>
-              <el-button type="primary" @click="uploadState">上传</el-button>
-            </template>
-          </el-dialog>
-        </div>
-
-        <div v-if="page === 'friends'" key="friends">
-          <div class="page-title">好友管理</div>
-          <div style="margin-bottom:16px">
-            <el-select v-model="friendAccountId" placeholder="选择账号" @change="loadFriends" style="width:200px;margin-right:8px">
-              <el-option v-for="a in accounts" :key="a.id" :label="a.name" :value="a.id" />
-            </el-select>
-            <el-button type="primary" @click="syncFriends" :loading="syncingFriends">同步好友</el-button>
-          </div>
-          <el-table :data="friends" size="small">
-            <el-table-column prop="name" label="好友名称" />
-            <el-table-column prop="spark_days" label="火花天数" width="100" />
-            <el-table-column prop="last_msg_at" label="最后消息" width="170" />
-          </el-table>
-        </div>
-
-        <div v-if="page === 'tasks'" key="tasks">
-          <div class="page-title">任务管理</div>
-          <el-button type="primary" @click="showTaskDialog = true" style="margin-bottom:16px">添加任务</el-button>
-          <el-button @click="runAllTasks" :loading="runningAll" style="margin-bottom:16px;margin-left:8px">全部执行</el-button>
-          <el-table :data="tasks" size="small">
-            <el-table-column prop="id" label="ID" width="60" />
-            <el-table-column prop="friend_name" label="好友" />
-            <el-table-column prop="message" label="消息" show-overflow-tooltip />
-            <el-table-column prop="message_type" label="类型" width="80" />
-            <el-table-column prop="cron_expr" label="Cron" width="130" />
-            <el-table-column label="状态" width="80">
-              <template #default="{row}"><el-tag :type="row.is_active?'success':'info'" size="small">{{ row.is_active ? '启用' : '停用' }}</el-tag></template>
-            </el-table-column>
-            <el-table-column prop="last_run" label="上次执行" width="170" />
-            <el-table-column label="操作" width="200">
-              <template #default="{row}">
-                <el-button size="small" type="success" @click="runTask(row.id)">执行</el-button>
-                <el-button size="small" type="danger" @click="deleteTask(row.id)">删除</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-
-          <el-dialog v-model="showTaskDialog" title="添加任务" width="500px">
-            <el-form>
-              <el-form-item label="账号">
-                <el-select v-model="newTask.account_id" style="width:100%">
-                  <el-option v-for="a in accounts" :key="a.id" :label="a.name" :value="a.id" />
-                </el-select>
-              </el-form-item>
-              <el-form-item label="好友名称"><el-input v-model="newTask.friend_name" placeholder="好友昵称" /></el-form-item>
-              <el-form-item label="消息类型">
-                <el-select v-model="newTask.message_type" style="width:100%">
-                  <el-option label="文字" value="text" />
-                  <el-option label="图片" value="image" />
-                  <el-option label="表情" value="sticker" />
-                </el-select>
-              </el-form-item>
-              <el-form-item label="消息内容"><el-input v-model="newTask.message" type="textarea" :rows="3" placeholder="支持 {{friend}} {{date}} {{weekday}} {{spark_days}} 等占位符" /></el-form-item>
-              <el-form-item label="Cron 表达式"><el-input v-model="newTask.cron_expr" placeholder="0 9 * * * (每天9点)" /></el-form-item>
-            </el-form>
-            <template #footer>
-              <el-button @click="showTaskDialog = false">取消</el-button>
-              <el-button type="primary" @click="createTask">确定</el-button>
-            </template>
-          </el-dialog>
-        </div>
-
-        <div v-if="page === 'logs'" key="logs">
-          <div class="page-title">运行日志</div>
-          <el-table :data="logs" size="small" max-height="500">
-            <el-table-column prop="id" label="ID" width="60" />
-            <el-table-column prop="created_at" label="时间" width="170" />
-            <el-table-column prop="status" label="状态" width="80">
-              <template #default="{row}"><el-tag :type="row.status==='success'?'success':'danger'" size="small">{{ row.status }}</el-tag></template>
-            </el-table-column>
-            <el-table-column prop="message" label="详情" show-overflow-tooltip />
-          </el-table>
-        </div>
-
-        <div v-if="page === 'settings'" key="settings">
-          <div class="page-title">系统设置</div>
-          <div class="card">
-            <div class="card-title">发送配置</div>
-            <el-form label-width="160px">
-              <el-form-item label="每日发送时间"><el-input v-model="cfg.schedule_time" placeholder="21:00" style="width:200px" /></el-form-item>
-              <el-form-item label="时间抖动(分钟)"><el-input-number v-model="cfg.jitter_minutes" :min="0" :max="120" /></el-form-item>
-              <el-form-item label="好友间隔最小(秒)"><el-input-number v-model="cfg.send_gap_min" :min="1" :max="120" /></el-form-item>
-              <el-form-item label="好友间隔最大(秒)"><el-input-number v-model="cfg.send_gap_max" :min="1" :max="300" /></el-form-item>
-              <el-form-item label="每次最多发送人数"><el-input-number v-model="cfg.max_friends_per_run" :min="0" :max="500" /></el-form-item>
-              <el-form-item label="每日发送上限"><el-input-number v-model="cfg.daily_limit" :min="0" :max="1000" /></el-form-item>
-              <el-form-item label="限流冷却(分钟)"><el-input-number v-model="cfg.rate_limit_cooldown_minutes" :min="1" :max="180" /></el-form-item>
-              <el-form-item label="失败重试延迟(分钟)"><el-input-number v-model="cfg.retry_delay_minutes" :min="1" :max="180" /></el-form-item>
-              <el-form-item v-if="user.is_admin" label="管理员密码"><el-input v-model="adminPass" type="password" placeholder="留空不修改" style="width:200px" /></el-form-item>
-              <el-form-item><el-button type="primary" @click="saveSettings">保存设置</el-button></el-form-item>
-            </el-form>
-          </div>
-        </div>
-
-        <div v-if="page === 'admin' && user.is_admin" key="admin">
-          <div class="page-title">用户管理</div>
-          <el-table :data="adminUsers" size="small">
-            <el-table-column prop="id" label="ID" width="60" />
-            <el-table-column prop="username" label="用户名" />
-            <el-table-column label="管理员" width="80">
-              <template #default="{row}"><el-tag :type="row.is_admin?'warning':''" size="small">{{ row.is_admin ? '是' : '否' }}</el-tag></template>
-            </el-table-column>
-            <el-table-column prop="created_at" label="创建时间" width="170" />
-            <el-table-column label="操作" width="100">
-              <template #default="{row}">
-                <el-button v-if="row.id !== user.id" size="small" type="danger" @click="deleteUser(row.id)">删除</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-        </div>
-      </div>
-    </div>
-  </div>
+<div class="app-shell" v-if="!isLoginPage">
+<aside class="sidebar">
+<div class="logo" @click="page='dashboard'">spark</div>
+<nav class="nav-links">
+<a class="nav-item" :class="{active:page==='dashboard'}" @click="page='dashboard'">
+<span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
+<span class="nav-label">首页</span></a>
+<a class="nav-item" :class="{active:page==='accounts'}" @click="page='accounts'">
+<span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+<span class="nav-label">账号</span></a>
+<a class="nav-item" :class="{active:page==='friends'}" @click="page='friends'">
+<span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></span>
+<span class="nav-label">好友</span></a>
+<a class="nav-item" :class="{active:page==='tasks'}" @click="page='tasks'">
+<span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+<span class="nav-label">任务</span></a>
+<a class="nav-item" :class="{active:page==='settings'}" @click="page='settings'">
+<span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72 1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg></span>
+<span class="nav-label">设置</span></a>
+</nav>
+<div class="sidebar-footer">
+<div class="user-info">
+<span class="user-role" v-if="user.is_admin">Admin</span>
+<span class="user-name">{{ user.username }}</span>
 </div>
-
+<a class="nav-item" @click="logout">
+<span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></span>
+<span class="nav-label">退出</span></a>
+</div>
+</aside>
+<main class="main-content">
+<dashboard v-if="page==='dashboard'" :data="stats" :logs="logList" @refresh="loadStats"></dashboard>
+<accounts-page v-if="page==='accounts'" :accounts="accountsList" @refresh="loadAccounts" @upload="uploadCookies"></accounts-page>
+<friends-page v-if="page==='friends'" :accounts="accountsList" :friends="friendList" @sync="syncFriends" @send="sendMessage"></friends-page>
+<tasks-page v-if="page==='tasks'" :accounts="accountsList" :tasks="taskList" :friends="friendList" @refresh="loadTasks" @create="createTask" @delete="deleteTask" @run="runTask"></tasks-page>
+<settings-page v-if="page==='settings'" @save="saveSettings"></settings-page>
+</main>
+</div>
+<login-page v-else @login="onLogin"></login-page>
+<button class="theme-toggle" @click="toggleTheme" :title="theme==='light'?'暗色模式':'亮色模式'">{{ theme==='light' ? '🌙' : '☀️' }}</button>
+<div v-if="toast.show" class="toast" :class="'toast-'+toast.type">{{ toast.msg }}</div>
+</div>
 <script>
-const { createApp, ref, reactive, onMounted, watch } = Vue;
-const { ElMessage, ElMessageBox } = ElementPlus;
+const API = '/api';
+const token = () => localStorage.getItem('token') || '';
+const headers = () => ({'Content-Type':'application/json',Authorization:'Bearer '+token()});
+const api = {get:url=>fetch(API+url,{headers:headers()}).then(r=>r.json().then(d=>({status:r.status,data:d}))),
+post:(url,body)=>fetch(API+url,{method:'POST',headers:headers(),body:JSON.stringify(body)}).then(r=>r.json().then(d=>({status:r.status,data:d}))),
+put:(url,body)=>fetch(API+url,{method:'PUT',headers:headers(),body:JSON.stringify(body)}).then(r=>r.json().then(d=>({status:r.status,data:d}))),
+del:url=>fetch(API+url,{method:'DELETE',headers:headers()}).then(r=>r.json().then(d=>({status:r.status,data:d})))};
 
-const app = createApp({
-  setup() {
-    const token = ref(localStorage.getItem('token') || '');
-    const user = ref(JSON.parse(localStorage.getItem('user') || '{}'));
-    const loading = ref(false);
-    const loginTab = ref('login');
-    const loginForm = reactive({ username: 'admin', password: 'spark2024' });
-    const regForm = reactive({ username: '', password: '' });
-    const page = ref('dashboard');
-    const stats = reactive({ accounts: 0, tasks: 0, friends: 0, today_sent: 0 });
-    const accounts = ref([]);
-    const friends = ref([]);
-    const tasks = ref([]);
-    const logs = ref([]);
-    const recentLogs = ref([]);
-    const cfg = reactive({});
-    const adminPass = ref('');
-    const adminUsers = ref([]);
-    const syncingFriends = ref(false);
-    const runningAll = ref(false);
-    const friendAccountId = ref(0);
-    const showAccountDialog = ref(false);
-    const showCookieDialog = ref(false);
-    const showStateDialog = ref(false);
-    const showTaskDialog = ref(false);
-    const newAccount = reactive({ name: '', phone: '' });
-    const newTask = reactive({ account_id: 0, friend_name: '', message: '', message_type: 'text', cron_expr: '0 9 * * *' });
-    const cookieInput = ref('');
-    const stateInput = ref('');
-    const uploadingAccountId = ref(0);
-    const isDark = ref(localStorage.getItem('theme') === 'dark');
+const {createApp,ref,reactive,computed,onMounted,watch,nextTick} = Vue;
+const app = createApp({setup(){
+const page=ref('dashboard'),user=ref({}),theme=ref(localStorage.getItem('theme')||'light'),toast=reactive({show:false,msg:'',type:'success'});
+const stats=reactive({accounts:0,tasks:0,friends:0,today_sent:0}),logList=ref([]),accountsList=ref([]),friendList=ref([]),taskList=ref([]);
+const isLoginPage=computed(()=>!user.value.username);
+const showToast=(msg,type='success')=>{toast.show=true;toast.msg=msg;toast.type=type;setTimeout(()=>toast.show=false,3000)};
+const toggleTheme=()=>{theme.value=theme.value==='light'?'dark':'light';localStorage.setItem('theme',theme.value);document.documentElement.setAttribute('data-theme',theme.value)};
+const logout=()=>{localStorage.removeItem('token');localStorage.removeItem('user');user.value={};page.value='dashboard'};
+const onLogin=(u)=>{user.value=u;page.value='dashboard';loadStats();loadAccounts()};
+const loadStats=async()=>{try{const r=await api.get('/stats');Object.assign(stats,r.data);const l=await api.get('/logs?limit=20');logList.value=l.data||[]}catch(e){}};
+const loadAccounts=async()=>{try{const r=await api.get('/accounts');accountsList.value=r.data||[]}catch(e){}};
+const loadFriends=async(accId)=>{try{const r=await api.get('/friends?account_id='+accId);friendList.value=r.data||[]}catch(e){}};
+const loadTasks=async()=>{try{const r=await api.get('/tasks');taskList.value=r.data||[]}catch(e){}};
+const uploadCookies=async(accId,cookies)=>{try{await api.post('/accounts/'+accId+'/cookies',{cookies});showToast('Cookie上传成功');loadAccounts()}catch(e){showToast('上传失败','error')}};
+const syncFriends=async(accId)=>{try{await api.post('/friends/sync',{account_id:accId});showToast('同步完成');loadFriends(accId)}catch(e){showToast('同步失败','error')}};
+const sendMessage=async(accId,name,msg)=>{try{const r=await api.post('/messages/send',{account_id:accId,friend_name:name,message:msg||'续火花🔥'});showToast(r.data?.success?'发送成功':'发送失败',r.data?.success?'success':'error')}catch(e){showToast('发送失败','error')}};
+const createTask=async(t)={try{await api.post('/tasks',t);showToast('任务创建成功');loadTasks()}catch(e){showToast('创建失败','error')}};
+const deleteTask=async(id)=>{try{await api.del('/tasks/'+id);showToast('已删除');loadTasks()}catch(e){showToast('删除失败','error')}};
+const runTask=async(id)=>{try{await api.post('/tasks/run/'+id);showToast('执行完成');loadTasks()}catch(e){showToast('执行失败','error')}};
+const saveSettings=async(s)=>{try{await api.post('/settings',s);showToast('设置已保存')}catch(e){showToast('保存失败','error')}};
+onMounted(()=>{document.documentElement.setAttribute('data-theme',theme.value);try{const u=JSON.parse(localStorage.getItem('user')||'{}');if(u.username){user.value=u;loadStats();loadAccounts()}}catch(e){}});
+return{page,user,theme,stats,logList,accountsList,friendList,taskList,isLoginPage,toast,showToast,toggleTheme,logout,onLogin,loadStats,loadAccounts,loadFriends,loadTasks,uploadCookies,syncFriends,sendMessage,createTask,deleteTask,runTask,saveSettings};
+}});
 
-    const api = axios.create({ baseURL: '' });
-    api.interceptors.request.use(c => {
-      if (token.value) c.headers.Authorization = 'Bearer ' + token.value;
-      return c;
-    });
-    api.interceptors.response.use(r => r, e => {
-      if (e.response?.status === 401) { token.value = ''; localStorage.clear(); }
-      const detail = e.response?.data?.detail;
-      const msg = detail && typeof detail === 'object' ? detail.message : (detail || e.message);
-      ElMessage.error(msg);
-      return Promise.reject(e);
-    });
+app.component('login-page',{template:`
+<div class="login-page"><div class="login-card"><div class="brand">spark</div>
+<form class="form" @submit.prevent="submit">
+<input v-model="username" placeholder="用户名" autofocus autocomplete="username"/>
+<input v-model="password" type="password" placeholder="密码" autocomplete="current-password"/>
+<button type="submit" :disabled="loading"><span v-if="loading">...</span><span v-else>{{isReg?'注册':'登录'}}</span></button>
+</form>
+<p class="toggle"><a @click="isReg=!isReg">{{isReg?'已有账号？登录':'没有账号？注册'}}</a></p>
+<p v-if="error" class="error">{{error}}</p>
+</div></div>`,
+setup(props,{emit}){const username=ref(''),password=ref(''),loading=ref(false),error=ref(''),isReg=ref(false);
+const submit=async()=>{if(!username.value||!password.value)return;loading.value=true;error.value='';try{const url=isReg.value?'/auth/register':'/auth/login';const r=await api.post(url,{username:username.value,password:password.value});if(r.data.token){localStorage.setItem('token',r.data.token);localStorage.setItem('user',JSON.stringify(r.data.user));emit('login',r.data.user)}else{error.value=r.data.detail||'操作失败'}}catch(e){error.value='网络错误'}finally{loading.value=false}};
+return{username,password,loading,error,isReg,submit}}});
 
-    const menu = computed(() => {
-      const items = [
-        { key: 'dashboard', label: '仪表盘', icon: 'DataAnalysis' },
-        { key: 'accounts', label: '账号管理', icon: 'User' },
-        { key: 'friends', label: '好友管理', icon: 'ChatDotRound' },
-        { key: 'tasks', label: '任务管理', icon: 'Clock' },
-        { key: 'logs', label: '运行日志', icon: 'Document' },
-        { key: 'settings', label: '系统设置', icon: 'Setting' },
-      ];
-      if (user.value.is_admin) items.push({ key: 'admin', label: '用户管理', icon: 'Avatar' });
-      return items;
-    });
+app.component('dashboard',{props:['data','logs'],emits:['refresh'],template:`
+<div><h2 class="page-title">首页</h2>
+<div class="stats-grid">
+<div class="stat-card" v-for="(s,i) in statsList" :key="s.key" :style="{animationDelay:i*0.08+'s'}"><div class="stat-value">{{data[s.key]}}</div><div class="stat-label">{{s.label}}</div></div>
+</div>
+<div class="card mt-6"><h3 class="card-title">最近日志</h3>
+<table class="table mt-3" v-if="logs.length"><thead><tr><th>时间</th><th>状态</th><th>消息</th></tr></thead><tbody><tr v-for="l in logs" :key="l.id"><td class="text-muted">{{(l.created_at||'').replace('T',' ').substring(0,19)}}</td><td><span class="badge" :class="l.status==='success'?'badge-green':'badge-red'">{{l.status==='success'?'成功':'失败'}}</span></td><td class="text-muted">{{l.message}}</td></tr></tbody></table>
+<p v-else class="text-muted mt-3">暂无日志</p></div></div>`,
+setup(){const statsList=[{label:'账号',key:'accounts'},{label:'好友',key:'friends'},{label:'活跃任务',key:'tasks'},{label:'今日发送',key:'today_sent'}];return{statsList}}})
 
-    async function doLogin() {
-      loading.value = true;
-      try {
-        const r = await api.post('/api/auth/login', { username: loginForm.username, password: loginForm.password });
-        token.value = r.data.token;
-        user.value = r.data.user;
-        localStorage.setItem('token', r.data.token);
-        localStorage.setItem('user', JSON.stringify(r.data.user));
-        await loadAll();
-      } catch (e) { /* handled by interceptor */ }
-      loading.value = false;
-    }
+app.component('accounts-page',{props:['accounts'],emits:['refresh','upload'],template:`
+<div><div class="page-header"><h2 class="page-title">账号管理</h2><button class="btn-primary" @click="addAccount">+ 添加账号</button></div>
+<div v-if="accounts.length" class="mt-4"><div class="card" v-for="a in accounts" :key="a.id" style="margin-bottom:12px">
+<div style="display:flex;justify-content:space-between;align-items:flex-start"><div style="flex:1"><div style="font-weight:500;font-size:14px">{{a.name}}</div><div style="display:flex;gap:8px;align-items:center;font-size:12px;margin-top:4px"><span v-if="a.phone" class="text-muted">{{a.phone}}</span><span class="badge" :class="a.cookies&&a.cookies!=='[]'?'badge-green':'badge-amber'">{{a.cookies&&a.cookies!=='[]'?'已登录':'未登录'}}</span></div></div>
+<div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn-secondary btn-sm" @click="importCookie(a.id)">导入Cookie</button><button class="btn-danger btn-sm" @click="delAccount(a.id)">删除</button></div></div>
+<div v-if="showCookie===a.id" style="margin-top:12px"><textarea v-model="cookieJson" placeholder="粘贴 Cookie JSON 数组" rows="4" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px;font-family:monospace;font-size:12px;resize:vertical"></textarea>
+<div style="margin-top:8px;display:flex;gap:8px"><button class="btn-primary btn-sm" @click="saveCookie(a.id)">保存</button><button class="btn-secondary btn-sm" @click="showCookie=null">取消</button></div></div></div></div>
+<p v-else class="text-muted mt-4">点击"添加账号"开始</p></div>`,
+setup(props,{emit}){const showCookie=ref(null),cookieJson=ref('');
+const addAccount=async()=>{try{await api.post('/accounts',{name:'账号 '+(props.accounts.length+1),phone:''});emit('refresh')}catch(e){}};
+const delAccount=async(id)=>{if(!confirm('确认删除？'))return;await api.del('/accounts/'+id);emit('refresh')};
+const importCookie=(id)=>{showCookie.value=id;cookieJson.value=''};
+const saveCookie=async(id)=>{try{const c=JSON.parse(cookieJson.value);emit('upload',id,c);showCookie.value=null;cookieJson.value=''}catch(e){alert('JSON格式错误')}};
+return{showCookie,cookieJson,addAccount,delAccount,importCookie,saveCookie}}})
 
-    async function doRegister() {
-      loading.value = true;
-      try {
-        const r = await api.post('/api/auth/register', { username: regForm.username, password: regForm.password });
-        token.value = r.data.token;
-        user.value = r.data.user;
-        localStorage.setItem('token', r.data.token);
-        localStorage.setItem('user', JSON.stringify(r.data.user));
-        await loadAll();
-      } catch (e) { /* handled by interceptor */ }
-      loading.value = false;
-    }
+app.component('friends-page',{props:['accounts','friends'],emits:['sync','send'],template:`
+<div><div class="page-header"><h2 class="page-title">好友列表</h2><div class="header-actions"><select v-model="selectedAccount" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 12px;outline:none"><option :value="0">选择账号</option><option v-for="a in accounts" :key="a.id" :value="a.id">{{a.name}}</option></select><button class="btn-secondary" @click="$emit('sync',selectedAccount)" :disabled="!selectedAccount||syncing">{{syncing?'同步中...':'同步好友'}}</button></div></div>
+<div v-if="!selectedAccount" class="text-muted mt-4">请先选择账号</div>
+<div v-else-if="friends.length===0" class="text-muted mt-4">暂无好友，请点击"同步好友"</div>
+<div v-else class="mt-4"><div class="friend-grid"><div class="friend-card stagger-item" v-for="(f,i) in friends" :key="f.id" :style="{animationDelay:i*0.04+'s'}"><div class="friend-row"><div class="friend-name">{{f.name}}</div><div class="friend-meta"><span class="badge badge-amber" v-if="f.spark_days">{{f.spark_days}}天</span><button class="btn-primary btn-sm" @click="doSend(f.name)" :disabled="sending===f.name">{{sending===f.name?'发送中':'发送'}}</button></div></div><p v-if="results[f.name]" class="result" :class="results[f.name]?'text-green':'text-red'">{{results[f.name]}}</p></div></div></div></div>`,
+setup(props,{emit}){const selectedAccount=ref(0),sending=ref(''),syncing=ref(false),results=reactive({});
+const doSend=async(name)=>{sending.value=name;try{await emit('send',selectedAccount.value,name);results[name]='已发送'}catch(e){results[name]='失败'}finally{sending.value=''}};
+return{selectedAccount,sending,syncing,results,doSend}}})
 
-    function toggleTheme() {
-      isDark.value = !isDark.value;
-      const theme = isDark.value ? 'dark' : 'light';
-      localStorage.setItem('theme', theme);
-      document.documentElement.setAttribute('data-theme', isDark.value ? 'dark' : '');
-    }
+app.component('tasks-page',{props:['accounts','tasks','friends'],emits:['refresh','create','delete','run'],template:`
+<div><div class="page-header"><h2 class="page-title">定时任务</h2><button class="btn-primary" @click="showForm=true">+ 新建任务</button></div>
+<div v-if="showForm" class="card mt-4"><h3 class="card-title">新建任务</h3>
+<div class="form-grid mt-3"><select v-model="form.account_id" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 12px;outline:none"><option :value="0">选择账号</option><option v-for="a in accounts" :key="a.id" :value="a.id">{{a.name}}</option></select>
+<div class="cron-picker"><span class="text-muted" style="font-size:12px">定时</span><select v-model="cronPreset" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 12px;outline:none"><option value="">自定义</option><option v-for="p in presets" :key="p.value" :value="p.value">{{p.label}}</option></select>
+<template v-if="!cronPreset"><input v-model="cronHour" type="number" min="0" max="23" class="time-input" placeholder="时"/><span class="text-muted">:</span><input v-model="cronMin" type="number" min="0" max="59" class="time-input" placeholder="分"/></template>
+<span class="text-muted" style="font-size:12px">{{cronPreset?'每天':'每天'}}</span></div>
+<input v-model="form.message" placeholder="消息内容（留空随机）" class="full-width"/>
+</div>
+<div v-if="friendOptions.length" class="mt-3"><div class="friend-header"><span class="text-muted">选择好友</span><button class="btn-secondary btn-sm" @click="selectAll">全选</button><button class="btn-secondary btn-sm" @click="deselectAll">取消</button></div>
+<div class="friend-grid"><label v-for="f in friendOptions" :key="f.name" class="friend-item" :class="{checked:selectedFriends.has(f.name)}"><input type="checkbox" :checked="selectedFriends.has(f.name)" @change="toggle(f.name)"/><span>{{f.name}}</span><span class="badge badge-amber" v-if="f.spark_days">{{f.spark_days}}天</span></label></div></div>
+<div class="mt-3"><button class="btn-primary" @click="submit" :disabled="!form.account_id||selectedFriends.size===0">创建 ({{selectedFriends.size}}个)</button><button class="btn-secondary" @click="showForm=false">取消</button></div></div>
+<table v-if="tasks.length" class="table mt-4"><thead><tr><th>账号</th><th>好友</th><th>Cron</th><th>状态</th><th>操作</th></tr></thead><tbody><tr v-for="t in tasks" :key="t.id"><td class="text-muted">{{t.account_name||'账号'+t.account_id}}</td><td>{{t.friend_name}}</td><td class="text-muted">{{t.cron_expr}}</td><td><span class="badge" :class="t.is_active?'badge-green':'badge-amber'">{{t.is_active?'活跃':'暂停'}}</span></td><td><div style="display:flex;gap:4px"><button class="btn-primary btn-sm" @click="$emit('run',t.id)">执行</button><button class="btn-danger btn-sm" @click="$emit('delete',t.id)">删除</button></div></td></tr></tbody></table>
+<p v-else class="text-muted mt-4">暂无任务</p></div>`,
+setup(props,{emit}){const showForm=ref(false),form=reactive({account_id:0,message:'',cron_expr:'0 9 * * *'}),cronPreset=ref('0 9 * * *'),cronHour=ref(9),cronMin=ref(0),selectedFriends=ref(new Set()),friendOptions=ref([]);
+const presets=[{value:'0 8 * * *',label:'08:00'},{value:'0 9 * * *',label:'09:00'},{value:'0 10 * * *',label:'10:00'},{value:'0 12 * * *',label:'12:00'},{value:'0 18 * * *',label:'18:00'},{value:'0 20 * * *',label:'20:00'},{value:'0 21 * * *',label:'21:00'}];
+const onPreset=()=>{if(cronPreset.value){form.cron_expr=cronPreset.value}else{form.cron_expr='0 '+cronMin.value+' '+cronHour.value+' * * *'}};
+const toggle=(n)=>{if(selectedFriends.value.has(n))selectedFriends.value.delete(n);else selectedFriends.value.add(n);selectedFriends.value=new Set(selectedFriends.value)};
+const selectAll=()=>{selectedFriends.value=new Set(friendOptions.value.map(f=>f.name))};
+const deselectAll=()=>{selectedFriends.value=new Set()};
+const submit=()=>{selectedFriends.value.forEach(name=>{emit('create',{account_id:form.account_id,friend_name:name,cron_expr:form.cron_expr,message:form.message})});showForm.value=false;selectedFriends.value=new Set()};
+watch(()=>props.friends,(v)=>{if(v)friendOptions.value=v});
+return{showForm,form,cronPreset,cronHour,cronMin,selectedFriends,friendOptions,presets,toggle,selectAll,deselectAll,submit,onPreset}}})
 
-    function logout() {
-      api.post('/api/auth/logout').catch(() => {});
-      token.value = '';
-      user.value = {};
-      localStorage.clear();
-    }
+app.component('settings-page',{emits:['save'],template:`
+<div><h2 class="page-title">系统设置</h2>
+<div class="card mt-4"><h3 class="card-title">通知渠道</h3>
+<div class="mt-3" style="display:flex;flex-direction:column;gap:12px">
+<div v-for="ch in channels" :key="ch.key" style="display:flex;align-items:center;gap:12px;padding:10px;border:1px solid var(--border);border-radius:8px">
+<div style="width:140px;font-weight:500;font-size:13px">{{ch.label}}</div>
+<input v-model="settings[ch.key]" :placeholder="ch.placeholder" style="flex:1;font-size:12px"/>
+</div>
+</div>
+<button class="btn-primary mt-3" @click="$emit('save',settings)">保存设置</button></div>
+<div class="card mt-4"><h3 class="card-title">关于</h3><p class="text-muted mt-2">Douyin Spark Fusion v1.0.0</p><p class="text-muted">融合 23 个抖音火花项目的最佳实践</p></div></div>`,
+setup(){const settings=reactive({DINGTALK_WEBHOOK:'',FEISHU_WEBHOOK:'',WECOM_WEBHOOK:'',TELEGRAM_BOT_TOKEN:'',TELEGRAM_CHAT_ID:'',BARK_DEVICE_KEY:'',SMTP_HOST:'',SMTP_USER:'',SMTP_PASS:'',MAIL_TO:''});
+const channels=[{key:'DINGTALK_WEBHOOK',label:'钉钉 Webhook',placeholder:'https://oapi.dingtalk.com/robot/send?access_token=...'},{key:'FEISHU_WEBHOOK',label:'飞书 Webhook',placeholder:'https://open.feishu.cn/open-apis/bot/v2/hook/...'},{key:'WECOM_WEBHOOK',label:'企业微信 Webhook',placeholder:'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=...'},{key:'TELEGRAM_BOT_TOKEN',label:'Telegram Bot Token',placeholder:'123456:ABC-DEF1234'},{key:'TELEGRAM_CHAT_ID',label:'Telegram Chat ID',placeholder:'-100123456'},{key:'BARK_DEVICE_KEY',label:'Bark Device Key',placeholder:'your-device-key'},{key:'SMTP_HOST',label:'SMTP 服务器',placeholder:'smtp.qq.com'},{key:'SMTP_USER',label:'SMTP 账号',placeholder:'your@email.com'},{key:'SMTP_PASS',label:'SMTP 密码',placeholder:'授权码'},{key:'MAIL_TO',label:'收件邮箱',placeholder:'your@email.com'}];
+return{settings,channels}}})
 
-    async function loadAll() {
-      try {
-        const [s, a, t, l] = await Promise.all([
-          api.get('/api/stats'), api.get('/api/accounts'),
-          api.get('/api/tasks'), api.get('/api/logs?limit=50'),
-        ]);
-        Object.assign(stats, s.data);
-        accounts.value = a.data;
-        tasks.value = t.data;
-        logs.value = l.data;
-        recentLogs.value = l.data.slice(0, 10);
-      } catch (e) { /* handled */ }
-      try { const r = await api.get('/api/settings'); Object.assign(cfg, r.data); } catch (e) { /* handled */ }
-    }
-
-    async function createAccount() {
-      try {
-        await api.post('/api/accounts', { name: newAccount.name, phone: newAccount.phone });
-        showAccountDialog.value = false;
-        newAccount.name = ''; newAccount.phone = '';
-        await loadAll();
-        ElMessage.success('账号已创建');
-      } catch (e) { /* handled */ }
-    }
-
-    async function deleteAccount(id) {
-      try {
-        await ElMessageBox.confirm('确定删除此账号？将同时删除相关任务和好友数据。', '确认', { type: 'warning' });
-        await api.delete('/api/accounts/' + id);
-        await loadAll();
-        ElMessage.success('已删除');
-      } catch (e) { /* cancelled or handled */ }
-    }
-
-    function openCookieUpload(row) { uploadingAccountId.value = row.id; cookieInput.value = row.cookies && row.cookies !== '[]' ? row.cookies : ''; showCookieDialog.value = true; }
-    function openStateUpload(row) { uploadingAccountId.value = row.id; stateInput.value = row.storage_state || ''; showStateDialog.value = true; }
-
-    async function uploadCookie() {
-      try {
-        let cookies;
-        try { cookies = JSON.parse(cookieInput.value); } catch (e) { ElMessage.error('JSON 格式无效'); return; }
-        await api.post('/api/accounts/' + uploadingAccountId.value + '/cookies', { cookies });
-        showCookieDialog.value = false;
-        await loadAll();
-        ElMessage.success('Cookie 已上传');
-      } catch (e) { /* handled */ }
-    }
-
-    async function uploadState() {
-      try {
-        let state;
-        try { state = JSON.parse(stateInput.value); } catch (e) { ElMessage.error('JSON 格式无效'); return; }
-        await api.post('/api/accounts/' + uploadingAccountId.value + '/storage-state', { storage_state: state });
-        showStateDialog.value = false;
-        await loadAll();
-        ElMessage.success('StorageState 已上传');
-      } catch (e) { /* handled */ }
-    }
-
-    async function verifyLogin(row) {
-      try {
-        const r = await api.post('/api/accounts/' + row.id + '/verify-login');
-        if (r.data.success) {
-          ElMessage.success('登录状态有效');
-        } else {
-          ElMessage.error('登录已失效: ' + (r.data.error || ''));
-        }
-      } catch (e) { /* handled */ }
-    }
-
-    async function loadFriends() {
-      if (!friendAccountId.value) { friends.value = []; return; }
-      try {
-        const r = await api.get('/api/friends?account_id=' + friendAccountId.value);
-        friends.value = r.data;
-      } catch (e) { /* handled */ }
-    }
-
-    async function syncFriends() {
-      if (!friendAccountId.value) { ElMessage.warning('请先选择账号'); return; }
-      syncingFriends.value = true;
-      try {
-        const r = await api.post('/api/friends/sync', { account_id: friendAccountId.value });
-        if (r.data.success) {
-          ElMessage.success('已同步 ' + r.data.count + ' 个好友');
-          await loadFriends();
-        } else {
-          ElMessage.error(r.data.error || '同步失败');
-        }
-      } catch (e) { /* handled */ }
-      syncingFriends.value = false;
-    }
-
-    async function createTask() {
-      try {
-        await api.post('/api/tasks', { ...newTask });
-        showTaskDialog.value = false;
-        newTask.account_id = 0; newTask.friend_name = ''; newTask.message = ''; newTask.message_type = 'text'; newTask.cron_expr = '0 9 * * *';
-        await loadAll();
-        ElMessage.success('任务已创建');
-      } catch (e) { /* handled */ }
-    }
-
-    async function deleteTask(id) {
-      try {
-        await ElMessageBox.confirm('确定删除此任务？', '确认', { type: 'warning' });
-        await api.delete('/api/tasks/' + id);
-        await loadAll();
-        ElMessage.success('已删除');
-      } catch (e) { /* handled */ }
-    }
-
-    async function runTask(id) {
-      try {
-        const r = await api.post('/api/tasks/' + id + '/run');
-        ElMessage[r.data.success ? 'success' : 'error'](r.data.message);
-        await loadAll();
-      } catch (e) { /* handled */ }
-    }
-
-    async function runAllTasks() {
-      runningAll.value = true;
-      try {
-        const r = await api.post('/api/tasks/run-all');
-        const results = r.data.results || [];
-        const ok = results.filter(x => x.success).length;
-        ElMessage.info('完成: ' + ok + '/' + results.length + ' 成功');
-        await loadAll();
-      } catch (e) { /* handled */ }
-      runningAll.value = false;
-    }
-
-    async function saveSettings() {
-      try {
-        const payload = { ...cfg };
-        if (adminPass.value) payload.admin_pass = adminPass.value;
-        await api.post('/api/settings', payload);
-        adminPass.value = '';
-        ElMessage.success('设置已保存');
-      } catch (e) { /* handled */ }
-    }
-
-    async function loadAdminUsers() {
-      try {
-        const r = await api.get('/api/admin/users');
-        adminUsers.value = r.data;
-      } catch (e) { /* handled */ }
-    }
-
-    async function deleteUser(id) {
-      try {
-        await ElMessageBox.confirm('确定删除此用户？将同时删除其所有数据。', '确认', { type: 'warning' });
-        await api.delete('/api/admin/users/' + id);
-        await loadAdminUsers();
-        ElMessage.success('已删除');
-      } catch (e) { /* handled */ }
-    }
-
-    watch(page, (v) => {
-      if (v === 'logs') loadAll();
-      if (v === 'admin') loadAdminUsers();
-      if (v === 'dashboard') loadAll();
-      if (v === 'friends') loadFriends();
-    });
-
-    onMounted(async () => {
-      if (isDark.value) document.documentElement.setAttribute('data-theme', 'dark');
-      if (token.value) await loadAll();
-    });
-
-    return {
-      token, user, loading, loginTab, loginForm, regForm, page, stats, accounts, friends, tasks,
-      logs, recentLogs, cfg, adminPass, adminUsers, menu, syncingFriends, runningAll,
-      friendAccountId, showAccountDialog, showCookieDialog, showStateDialog, showTaskDialog,
-      newAccount, newTask, cookieInput, stateInput, uploadingAccountId,
-      isDark, toggleTheme, doLogin, doRegister, logout, createAccount, deleteAccount, openCookieUpload, openStateUpload,
-      uploadCookie, uploadState, verifyLogin, loadFriends, syncFriends,
-      createTask, deleteTask, runTask, runAllTasks, saveSettings, loadAdminUsers, deleteUser,
-    };
-  }
-});
-
-app.use(ElementPlus);
-for (const [k, v] of Object.entries(ElementPlusIconsVue)) { app.component(k, v); }
-app.mount('#app');
+app.mount('#app')
 </script>
 </body>
 </html>
