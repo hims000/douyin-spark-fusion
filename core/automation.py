@@ -871,17 +871,6 @@ def run_send_task(
             dry_run=dry_run,
         )
 
-        try:
-            import asyncio
-
-            from core.notifier import send_notification as _notify
-            if success:
-                asyncio.run(_notify("✅ 火花续期成功", f"好友: {friend_name}\n消息: {message}"[:200]))
-            else:
-                asyncio.run(_notify("❌ 火花续期失败", f"好友: {friend_name}\n原因: {reason}"[:200]))
-        except Exception:
-            pass
-
         return success, reason
     except Exception as e:
         logger.error("发送任务异常: %s", e)
