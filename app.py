@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import functools
 import hashlib
 import json
 import logging
@@ -7,6 +9,7 @@ import secrets
 import smtplib
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from datetime import datetime
 from email.mime.text import MIMEText
@@ -54,6 +57,7 @@ security = HTTPBearer(auto_error=False)
 _sessions: dict[str, dict[str, Any]] = {}
 
 _rate_limit_store: dict[str, list[float]] = {}
+_executor = ThreadPoolExecutor(max_workers=2)
 
 
 def app_error(code: str, status_code: int, message: str) -> HTTPException:
@@ -730,7 +734,8 @@ async def sync_friends(req: Request, user: dict[str, Any] = Depends(require_user
     if not cookies and not storage_state:
         raise app_error("ACCT_002", 400, "请先配置登录凭据")
 
-    result = fetch_chat_contacts(cookies=cookies, storage_state=storage_state)
+    loop = asyncio.get_running_loop()
+    result = await loop.run_in_executor(_executor, fetch_chat_contacts, cookies, storage_state)
 
     if result.get("error"):
         return {"success": False, "error": result["error"]}
@@ -813,15 +818,19 @@ async def send_message(req: Request, user: dict[str, Any] = Depends(require_user
     if has_rate_limit_cooldown():
         raise app_error("RATE_001", 429, "当前处于限流冷却期，请稍后再试")
 
-    success, reason = run_send_task(
-        friend_name=friend_name,
-        message=message,
-        message_type=message_type,
-        image_path=image_path,
-        sticker_name=sticker_name,
-        dry_run=dry_run,
-        cookies=cookies,
-        storage_state=storage_state,
+    loop = asyncio.get_running_loop()
+    success, reason = await loop.run_in_executor(
+        _executor,
+        lambda: run_send_task(
+            friend_name=friend_name,
+            message=message,
+            message_type=message_type,
+            image_path=image_path,
+            sticker_name=sticker_name,
+            dry_run=dry_run,
+            cookies=cookies,
+            storage_state=storage_state,
+        ),
     )
 
     db = await get_db()
@@ -1051,13 +1060,17 @@ async def run_task_now(task_id: int, user: dict[str, Any] = Depends(require_user
     if has_rate_limit_cooldown():
         raise app_error("RATE_001", 429, "当前处于限流冷却期，请稍后再试")
 
-    success, reason = run_send_task(
-        friend_name=task["friend_name"],
-        message=task["message"],
-        message_type=task.get("message_type", "text"),
-        dry_run=False,
-        cookies=cookies,
-        storage_state=storage_state,
+    loop = asyncio.get_running_loop()
+    success, reason = await loop.run_in_executor(
+        _executor,
+        lambda: run_send_task(
+            friend_name=task["friend_name"],
+            message=task["message"],
+            message_type=task.get("message_type", "text"),
+            dry_run=False,
+            cookies=cookies,
+            storage_state=storage_state,
+        ),
     )
 
     db = await get_db()
@@ -1158,13 +1171,18 @@ async def run_all_tasks(user: dict[str, Any] = Depends(require_user)):
                 )
                 continue
 
-            success, reason = run_send_task(
-                friend_name=task_dict["friend_name"],
-                message=task_dict["message"],
-                message_type=task_dict.get("message_type", "text"),
-                dry_run=False,
-                cookies=cookies,
-                storage_state=storage_state,
+            loop = asyncio.get_running_loop()
+            success, reason = await loop.run_in_executor(
+                _executor,
+                functools.partial(
+                    run_send_task,
+                    friend_name=task_dict["friend_name"],
+                    message=task_dict["message"],
+                    message_type=task_dict.get("message_type", "text"),
+                    dry_run=False,
+                    cookies=cookies,
+                    storage_state=storage_state,
+                ),
             )
 
             db3 = await get_db()

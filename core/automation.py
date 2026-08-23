@@ -728,6 +728,7 @@ def fetch_chat_contacts(
     storage_state: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     result: dict[str, Any] = {"at": _now(), "names": [], "error": None}
+    context = None
 
     if not cookies and not storage_state:
         result["error"] = "未配置登录凭据"
