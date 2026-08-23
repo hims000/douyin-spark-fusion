@@ -112,6 +112,12 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <a class="nav-item" :class="{active:page==='tasks'}" @click="page='tasks'">
 <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
 <span class="nav-label">任务</span></a>
+<a class="nav-item" :class="{active:page==='history'}" @click="page='history'">
+<span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/><path d="M12 6v6l4 2"/></svg></span>
+<span class="nav-label">历史</span></a>
+<a class="nav-item" :class="{active:page==='status'}" @click="page='status'">
+<span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
+<span class="nav-label">状态</span></a>
 <a class="nav-item" :class="{active:page==='settings'}" @click="page='settings'">
 <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72 1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg></span>
 <span class="nav-label">设置</span></a>
@@ -131,6 +137,8 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <accounts-page v-if="page==='accounts'" :accounts="accountsList" @refresh="loadAccounts" @upload="uploadCookies"></accounts-page>
 <friends-page v-if="page==='friends'" :accounts="accountsList" :friends="friendList" @sync="syncFriends" @send="sendMessage"></friends-page>
 <tasks-page v-if="page==='tasks'" :accounts="accountsList" :tasks="taskList" :friends="friendList" @refresh="loadTasks" @create="createTask" @delete="deleteTask" @run="runTask"></tasks-page>
+<history-page v-if="page==='history'" @refresh="loadHistory"></history-page>
+<status-page v-if="page==='status'"></status-page>
 <settings-page v-if="page==='settings'" @save="saveSettings"></settings-page>
 </main>
 </div>
@@ -150,7 +158,7 @@ del:url=>fetch(API+url,{method:'DELETE',headers:headers()}).then(r=>r.json().the
 const {createApp,ref,reactive,computed,onMounted,watch,nextTick} = Vue;
 const app = createApp({setup(){
 const page=ref('dashboard'),user=ref({}),theme=ref(localStorage.getItem('theme')||'light'),toast=reactive({show:false,msg:'',type:'success'});
-const stats=reactive({accounts:0,tasks:0,friends:0,today_sent:0}),logList=ref([]),accountsList=ref([]),friendList=ref([]),taskList=ref([]);
+const stats=reactive({accounts:0,tasks:0,friends:0,today_sent:0}),logList=ref([]),accountsList=ref([]),friendList=ref([]),taskList=ref([]),historyList=ref([]);
 const isLoginPage=computed(()=>!user.value.username);
 const showToast=(msg,type='success')=>{toast.show=true;toast.msg=msg;toast.type=type;setTimeout(()=>toast.show=false,3000)};
 const toggleTheme=()=>{theme.value=theme.value==='light'?'dark':'light';localStorage.setItem('theme',theme.value);document.documentElement.setAttribute('data-theme',theme.value)};
@@ -160,6 +168,7 @@ const loadStats=async()=>{try{const r=await api.get('/stats');Object.assign(stat
 const loadAccounts=async()=>{try{const r=await api.get('/accounts');accountsList.value=r.data||[]}catch(e){}};
 const loadFriends=async(accId)=>{try{const r=await api.get('/friends?account_id='+accId);friendList.value=r.data||[]}catch(e){}};
 const loadTasks=async()=>{try{const r=await api.get('/tasks');taskList.value=r.data||[]}catch(e){}};
+const loadHistory=async(friendName='')=>{try{const r=await api.get('/messages/history?friend_name='+encodeURIComponent(friendName)+'&limit=200');historyList.value=r.data||[]}catch(e){}};
 const uploadCookies=async(accId,cookies)=>{try{await api.post('/accounts/'+accId+'/cookies',{cookies});showToast('Cookie上传成功');loadAccounts()}catch(e){showToast('上传失败','error')}};
 const syncFriends=async(accId)=>{try{await api.post('/friends/sync',{account_id:accId});showToast('同步完成');loadFriends(accId)}catch(e){showToast('同步失败','error')}};
 const sendMessage=async(accId,name,msg)=>{try{const r=await api.post('/messages/send',{account_id:accId,friend_name:name,message:msg||'续火花🔥'});showToast(r.data?.success?'发送成功':'发送失败',r.data?.success?'success':'error')}catch(e){showToast('发送失败','error')}};
@@ -168,7 +177,7 @@ const deleteTask=async(id)=>{try{await api.del('/tasks/'+id);showToast('已删�
 const runTask=async(id)=>{try{await api.post('/tasks/run/'+id);showToast('执行完成');loadTasks()}catch(e){showToast('执行失败','error')}};
 const saveSettings=async(s)=>{try{await api.post('/settings',s);showToast('设置已保存')}catch(e){showToast('保存失败','error')}};
 onMounted(()=>{document.documentElement.setAttribute('data-theme',theme.value);try{const u=JSON.parse(localStorage.getItem('user')||'{}');if(u.username){user.value=u;loadStats();loadAccounts()}}catch(e){}});
-return{page,user,theme,stats,logList,accountsList,friendList,taskList,isLoginPage,toast,showToast,toggleTheme,logout,onLogin,loadStats,loadAccounts,loadFriends,loadTasks,uploadCookies,syncFriends,sendMessage,createTask,deleteTask,runTask,saveSettings};
+return{page,user,theme,stats,logList,accountsList,friendList,taskList,historyList,isLoginPage,toast,showToast,toggleTheme,logout,onLogin,loadStats,loadAccounts,loadFriends,loadTasks,loadHistory,uploadCookies,syncFriends,sendMessage,createTask,deleteTask,runTask,saveSettings};
 }});
 
 app.component('login-page',{template:`
@@ -270,6 +279,40 @@ const testing=ref('');
 const channels=[{key:'dingtalk',label:'钉钉',fields:[{key:'DINGTALK_WEBHOOK',placeholder:'Webhook URL'}]},{key:'feishu',label:'飞书',fields:[{key:'FEISHU_WEBHOOK',placeholder:'Webhook URL'}]},{key:'wecom',label:'企业微信',fields:[{key:'WECOM_WEBHOOK',placeholder:'Webhook URL'}]},{key:'telegram',label:'Telegram',fields:[{key:'TELEGRAM_BOT_TOKEN',placeholder:'Bot Token'},{key:'TELEGRAM_CHAT_ID',placeholder:'Chat ID'}]},{key:'bark',label:'Bark',fields:[{key:'BARK_DEVICE_KEY',placeholder:'Device Key'}]},{key:'email',label:'邮件',fields:[{key:'SMTP_HOST',placeholder:'SMTP服务器'},{key:'SMTP_USER',placeholder:'SMTP账号'},{key:'SMTP_PASS',placeholder:'SMTP密码'},{key:'MAIL_TO',placeholder:'收件邮箱'}]}];
 const testChannel=async(ch)=>{testing.value=ch.key;try{const r=await api.post('/notify/test',{channel:ch.key});const app=document.getElementById('app').__vue_app__;const ctx=app._instance?.setupState||app._instance?.proxy;if(r.data?.success){if(ctx&&ctx.showToast)ctx.showToast(ch.label+' 测试通知已发送')}}catch(e){}finally{testing.value=''}};
 return{settings,chEn,channels,testing,testChannel}}})
+
+app.component('history-page',{emits:['refresh'],template:`
+<div><div class="page-header"><h2 class="page-title">消息历史</h2><div class="header-actions"><input v-model="filterName" placeholder="筛选好友名称" style="width:200px" @input="onFilter"/><button class="btn-secondary" @click="refresh">刷新</button></div></div>
+<div v-if="rows.length" class="card mt-4" style="padding:0"><table class="table"><thead><tr><th>时间</th><th>好友</th><th>消息</th><th>状态</th></tr></thead><tbody><tr v-for="r in rows" :key="r.id"><td class="text-muted">{{(r.created_at||'').replace('T',' ').substring(0,19)}}</td><td>{{r.friend_name}}</td><td class="text-muted">{{r.message}}</td><td><span class="badge" :class="r.status==='success'?'badge-green':'badge-red'">{{r.status==='success'?'成功':'失败'}}</span></td></tr></tbody></table></div>
+<p v-else class="text-muted mt-4">暂无消息记录</p>
+<div v-if="sendCounts.length" class="card mt-4"><h3 class="card-title mb-4">发送统计</h3><div class="friend-grid"><div class="friend-card" v-for="sc in sendCounts" :key="sc.name"><div class="friend-row"><div class="friend-name">{{sc.name}}</div><span class="badge badge-green">{{sc.count}}条</span></div></div></div></div></div>`,
+setup(props,{emit}){const rows=ref([]),filterName=ref(''),sendCounts=ref([]);
+const refresh=async()=>{try{const app=document.getElementById('app').__vue_app__;const ctx=app._instance?.setupState||app._instance?.proxy;if(ctx&&ctx.loadHistory)await ctx.loadHistory(filterName.value);const r=await api.get('/messages/history?friend_name='+encodeURIComponent(filterName.value)+'&limit=200');rows.value=r.data||[];buildCounts()}catch(e){}};
+const buildCounts=()=>{const m={};rows.value.forEach(r=>{m[r.friend_name]=(m[r.friend_name]||0)+1});sendCounts.value=Object.entries(m).map(([name,count])=>({name,count})).sort((a,b)=>b.count-a.count)};
+const onFilter=()=>refresh();
+onMounted(()=>refresh());
+return{rows,filterName,sendCounts,refresh,onFilter}}});
+
+app.component('status-page',{template:`
+<div><h2 class="page-title">系统状态</h2>
+<div class="stats-grid"><div class="stat-card" v-for="(s,i) in statCards" :key="s.key" :style="{animationDelay:i*0.08+'s'}"><div class="stat-value">{{s.value}}</div><div class="stat-label">{{s.label}}</div></div></div>
+<div class="card mt-6"><h3 class="card-title">资源使用</h3>
+<div class="mt-3" style="display:flex;flex-direction:column;gap:8px">
+<div style="display:flex;justify-content:space-between;font-size:13px"><span>CPU</span><span :class="status.cpu_percent>80?'text-red':''">{{status.cpu_percent}}%</span></div>
+<div style="width:100%;height:6px;background:var(--bg-hover);border-radius:3px"><div :style="{width:status.cpu_percent+'%',height:'100%',background:status.cpu_percent>80?'var(--red)':'var(--green)',borderRadius:'3px',transition:'width .3s'}"></div></div>
+<div style="display:flex;justify-content:space-between;font-size:13px"><span>内存</span><span :class="status.memory_percent>80?'text-red':''">{{status.memory_percent}}% ({{status.memory_used_gb}}/{{status.memory_total_gb}} GB)</span></div>
+<div style="width:100%;height:6px;background:var(--bg-hover);border-radius:3px"><div :style="{width:status.memory_percent+'%',height:'100%',background:status.memory_percent>80?'var(--red)':'var(--green)',borderRadius:'3px',transition:'width .3s'}"></div></div>
+<div style="display:flex;justify-content:space-between;font-size:13px"><span>磁盘</span><span :class="status.disk_percent>80?'text-red':''">{{status.disk_percent}}% ({{status.disk_free_gb}} GB 可用)</span></div>
+<div style="width:100%;height:6px;background:var(--bg-hover);border-radius:3px"><div :style="{width:status.disk_percent+'%',height:'100%',background:status.disk_percent>80?'var(--red)':'var(--green)',borderRadius:'3px',transition:'width .3s'}"></div></div>
+</div></div>
+<div class="card mt-4"><h3 class="card-title">发送统计</h3>
+<div class="mt-3" style="display:flex;gap:24px;font-size:13px"><div><span class="text-muted">今日发送: </span><span>{{status.today_sent}}</span></div><div><span class="text-muted">成功率: </span><span>{{status.today_total>0?Math.round(status.today_sent/status.today_total*100):0}}%</span></div><div><span class="text-muted">限流次数: </span><span :class="status.rate_limited>0?'text-red':''">{{status.rate_limited}}</span></div></div></div>
+<div class="card mt-4"><h3 class="card-title">会话状态</h3>
+<div class="mt-3" style="display:flex;gap:24px;font-size:13px"><div><span class="text-muted">Cookie: </span><span class="badge" :class="status.cookie_valid?'badge-green':'badge-red'">{{status.cookie_valid?'有效':'无效'}}</span></div><div><span class="text-muted">运行时间: </span><span>{{status.uptime_hours}} 小时</span></div></div></div></div>`,
+setup(){const status=reactive({cpu_percent:0,memory_percent:0,memory_used_gb:0,memory_total_gb:0,disk_percent:0,disk_free_gb:0,uptime_hours:0,today_sent:0,today_total:0,rate_limited:0,cookie_valid:false});
+const statCards=computed(()=>[{key:'cpu',label:'CPU使用率',value:status.cpu_percent+'%'},{key:'mem',label:'内存使用率',value:status.memory_percent+'%'},{key:'disk',label:'磁盘使用率',value:status.disk_percent+'%'},{key:'uptime',label:'运行时间',value:status.uptime_hours+' 小时'}]);
+const fetchStatus=async()=>{try{const r=await api.get('/status');if(r.data)Object.assign(status,r.data)}catch(e){}};
+onMounted(()=>{fetchStatus();setInterval(fetchStatus,30000)});
+return{status,statCards}}});
 
 app.mount('#app')
 </script>

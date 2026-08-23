@@ -1,7 +1,7 @@
 # Douyin Spark Fusion (Self-Hosted)
 
-[![GitHub release](https://img.shields.io/github/v/release/hims000/douyin-spark-fusion)](https://github.com/hims000/douyin-spark-fusion/releases)
 [![CI](https://github.com/hims000/douyin-spark-fusion/actions/workflows/ci.yml/badge.svg)](https://github.com/hims000/douyin-spark-fusion/actions)
+[![Release](https://img.shields.io/github/v/release/hims000/douyin-spark-fusion)](https://github.com/hims000/douyin-spark-fusion/releases)
 [![Docker](https://img.shields.io/badge/docker-ghcr.io-blue)](https://github.com/hims000/douyin-spark-fusion/pkgs/container/douyin-spark-fusion)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.12+-blue)](https://www.python.org/)

@@ -24,6 +24,32 @@ from .config import DATA_DIR, settings
 logger = logging.getLogger("fusion-spark")
 
 _browser_pool: dict[str, Any] = {}
+_browser_cache: dict[str, tuple] = {}
+
+def _get_cached_browser(cookies_hash: str):
+    if cookies_hash in _browser_cache:
+        return _browser_cache[cookies_hash]
+    return None
+
+
+def _set_cached_browser(cookies_hash: str, playwright, browser, context):
+    if len(_browser_cache) >= 3:
+        oldest = next(iter(_browser_cache))
+        pw, br, ctx = _browser_cache.pop(oldest)
+        try:
+            ctx.close()
+        except Exception:
+            pass
+    _browser_cache[cookies_hash] = (playwright, browser, context)
+
+
+def _compute_cookies_hash(cookies: list[dict[str, Any]]) -> str:
+    try:
+        normalized = _normalize_cookies(cookies)
+        return hashlib.md5(json.dumps(normalized, sort_keys=True).encode()).hexdigest()
+    except ValueError:
+        return ""
+
 
 TEMPLATE_REGEX = re.compile(r"\{\{(\w+)\}\}")
 
@@ -880,10 +906,20 @@ def run_send_task(
     if not cookies and not storage_state:
         return False, "未配置登录凭据"
 
+    cookies_hash = _compute_cookies_hash(cookies) if cookies else ""
+    cached = _get_cached_browser(cookies_hash)
+    context = None
+    page = None
+    browser_ = None
+
     try:
-        _browser, context, page = launch_browser(
-            cookies=cookies, storage_state=storage_state
-        )
+        if cached:
+            _, browser_, context = cached
+            page = context.new_page()
+        else:
+            browser_, context, page = launch_browser(
+                cookies=cookies, storage_state=storage_state
+            )
 
         goto_ok = False
         for attempt in range(3):
@@ -923,8 +959,12 @@ def run_send_task(
         logger.error("发送任务异常: %s", e)
         return False, f"运行异常: {e}"
     finally:
-        if context:
+        if page:
             try:
-                context.close()
+                page.close()
             except Exception:
                 pass
+        if not cached and context and browser_:
+            pw = _browser_pool.get("playwright")
+            if pw:
+                _set_cached_browser(cookies_hash, pw, browser_, context)

@@ -111,6 +111,7 @@ async def init_db() -> None:
         CREATE INDEX IF NOT EXISTS idx_tasks_is_active ON tasks(is_active);
         CREATE INDEX IF NOT EXISTS idx_friends_account_id ON friends(account_id);
         CREATE INDEX IF NOT EXISTS idx_logs_created_at ON logs(created_at);
+        CREATE INDEX IF NOT EXISTS idx_logs_account_created ON logs(account_id, created_at);
 
         CREATE TABLE IF NOT EXISTS message_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

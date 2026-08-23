@@ -345,6 +345,84 @@ async def health_live():
     return {"status": "ok"}
 
 
+@app.get(
+    "/api/status",
+    tags=["health"],
+    summary="System status",
+    description="Returns system resource usage, uptime, and send statistics",
+)
+async def system_status():
+    import psutil
+
+    cpu = psutil.cpu_percent(interval=0.1)
+    mem = psutil.virtual_memory()
+    disk = psutil.disk_usage("/")
+    uptime = time.time() - psutil.boot_time()
+
+    db = await get_db()
+    today_sent = await db.execute_fetchall(
+        "SELECT COUNT(*) as c FROM logs WHERE status='success' AND date(created_at)=date('now')"
+    )
+    today_total = await db.execute_fetchall(
+        "SELECT COUNT(*) as c FROM logs WHERE date(created_at)=date('now')"
+    )
+    rate_limited = await db.execute_fetchall(
+        "SELECT COUNT(*) as c FROM logs WHERE reason LIKE '%限流%' AND date(created_at)=date('now')"
+    )
+
+    cookie_valid = False
+    try:
+        row = await db.execute_fetchall(
+            "SELECT id, cookies, storage_state FROM accounts WHERE (cookies IS NOT NULL AND cookies != '[]' AND cookies != '') OR (storage_state IS NOT NULL AND storage_state != '') LIMIT 1"
+        )
+        if row:
+            acct = dict(row[0])
+            cookies = json.loads(acct.get("cookies", "[]"))
+            ss = acct.get("storage_state", "")
+            storage_state = json.loads(ss) if ss else None
+            if cookies or storage_state:
+                from core.automation import DOUYIN_CHAT_URL, check_login, launch_browser
+
+                try:
+                    browser, context, page = launch_browser(
+                        cookies=cookies, storage_state=storage_state
+                    )
+                    try:
+                        page.goto(
+                            DOUYIN_CHAT_URL,
+                            timeout=15000,
+                            wait_until="domcontentloaded",
+                        )
+                        page.wait_for_timeout(5000)
+                        logged, _ = check_login(page)
+                        cookie_valid = logged
+                    finally:
+                        context.close()
+                        browser.close()
+                except Exception:
+                    cookie_valid = False
+            else:
+                cookie_valid = True
+    except Exception:
+        cookie_valid = False
+
+    await db.close()
+
+    return {
+        "cpu_percent": cpu,
+        "memory_percent": mem.percent,
+        "memory_used_gb": round(mem.used / 1024**3, 2),
+        "memory_total_gb": round(mem.total / 1024**3, 2),
+        "disk_percent": disk.percent,
+        "disk_free_gb": round(disk.free / 1024**3, 2),
+        "uptime_hours": round(uptime / 3600, 1),
+        "today_sent": today_sent[0]["c"] if today_sent else 0,
+        "today_total": today_total[0]["c"] if today_total else 0,
+        "rate_limited": rate_limited[0]["c"] if rate_limited else 0,
+        "cookie_valid": cookie_valid,
+    }
+
+
 # ── Auth ────────────────────────────────────────────────────
 
 
@@ -899,6 +977,44 @@ async def preview_template(req: Request, user: dict[str, Any] = Depends(require_
     else:
         rendered = render_template(template, context)
     return {"rendered": rendered, "context": context}
+
+
+@app.get(
+    "/api/messages/history",
+    tags=["messages"],
+    summary="Message history",
+    description="Returns message history records with optional friend_name filter",
+)
+async def message_history_endpoint(
+    friend_name: str = "",
+    limit: int = 50,
+    user: dict[str, Any] = Depends(require_user),
+):
+    db = await get_db()
+    if user["is_admin"]:
+        if friend_name:
+            rows = await db.execute_fetchall(
+                "SELECT * FROM message_history WHERE friend_name=? ORDER BY created_at DESC LIMIT ?",
+                (friend_name, limit),
+            )
+        else:
+            rows = await db.execute_fetchall(
+                "SELECT * FROM message_history ORDER BY created_at DESC LIMIT ?",
+                (limit,),
+            )
+    else:
+        if friend_name:
+            rows = await db.execute_fetchall(
+                "SELECT mh.* FROM message_history mh JOIN accounts a ON mh.account_id=a.id WHERE mh.friend_name=? AND a.user_id=? ORDER BY mh.created_at DESC LIMIT ?",
+                (friend_name, user["id"], limit),
+            )
+        else:
+            rows = await db.execute_fetchall(
+                "SELECT mh.* FROM message_history mh JOIN accounts a ON mh.account_id=a.id WHERE a.user_id=? ORDER BY mh.created_at DESC LIMIT ?",
+                (user["id"], limit),
+            )
+    await db.close()
+    return [dict(r) for r in rows]
 
 
 # ── Tasks ───────────────────────────────────────────────────
