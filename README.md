@@ -1,5 +1,12 @@
 # Douyin Spark Fusion (Self-Hosted)
 
+[![GitHub release](https://img.shields.io/github/v/release/hims000/douyin-spark-fusion)](https://github.com/hims000/douyin-spark-fusion/releases)
+[![CI](https://github.com/hims000/douyin-spark-fusion/actions/workflows/ci.yml/badge.svg)](https://github.com/hims000/douyin-spark-fusion/actions)
+[![Docker](https://img.shields.io/badge/docker-ghcr.io-blue)](https://github.com/hims000/douyin-spark-fusion/pkgs/container/douyin-spark-fusion)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.12+-blue)](https://www.python.org/)
+[![Tests](https://img.shields.io/badge/tests-20%20passed-brightgreen)](tests/)
+
 抖音火花自动续期融合方案 — 自托管 Web 应用，基于 FastAPI + Vue3 + Element Plus。
 
 ## 特性

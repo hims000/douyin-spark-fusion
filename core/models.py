@@ -6,7 +6,7 @@ from typing import Any
 
 import aiosqlite
 
-from .config import DATA_DIR, settings
+from .config import DATA_DIR
 
 DB_PATH = os.path.join(DATA_DIR, "fusion.db")
 
@@ -111,7 +111,7 @@ async def init_db() -> None:
         CREATE INDEX IF NOT EXISTS idx_logs_created_at ON logs(created_at);
     """)
 
-    admin_hash = hashlib.sha256("spark2024".encode()).hexdigest()
+    admin_hash = hashlib.sha256(b"spark2024").hexdigest()
     await db.execute(
         "INSERT OR IGNORE INTO users(username, password_hash, is_admin) VALUES(?,?,1)",
         ("admin", admin_hash),

@@ -3,10 +3,8 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import os
 import secrets
 import smtplib
-import socket
 import sys
 import time
 from contextlib import asynccontextmanager
@@ -15,49 +13,34 @@ from email.mime.text import MIMEText
 from pathlib import Path
 from typing import Any
 
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, FileResponse, HTMLResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from core.automation import (
+    check_login,
+    fetch_chat_contacts,
+    message_hash,
+    render_template,
+    run_send_task,
+)
 from core.config import (
-    DATA_DIR,
-    TZ,
     load_config,
     save_config,
     settings,
 )
-from core.metrics import get_metrics, get_memory_usage
+from core.metrics import get_memory_usage, get_metrics
 from core.models import (
     get_db,
     hash_password,
     init_db,
-    parse_auth_json,
-    set_setting,
-)
-from core.automation import (
-    fetch_chat_contacts,
-    launch_browser,
-    run_send_task,
-    check_login,
-    detect_rate_limit,
-    message_hash,
-    render_template,
-    MESSAGE_TEMPLATE_PLACEHOLDERS,
-    AuthenticationError,
-    RateLimitError,
-    RiskControlError,
-    DOUYIN_CHAT_URL,
 )
 from core.scheduler import (
-    schedule_retry,
-    schedule_rate_limit_cooldown,
     has_rate_limit_cooldown,
-    cancel_retry,
+    schedule_rate_limit_cooldown,
 )
 
 logging.basicConfig(
@@ -74,7 +57,9 @@ _rate_limit_store: dict[str, list[float]] = {}
 
 
 def app_error(code: str, status_code: int, message: str) -> HTTPException:
-    return HTTPException(status_code=status_code, detail={"code": code, "message": message})
+    return HTTPException(
+        status_code=status_code, detail={"code": code, "message": message}
+    )
 
 
 def _check_rate_limit(key: str, max_requests: int = 60, window: int = 60) -> bool:
@@ -88,7 +73,9 @@ def _check_rate_limit(key: str, max_requests: int = 60, window: int = 60) -> boo
     return False
 
 
-async def get_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict[str, Any]:
+async def get_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> dict[str, Any]:
     if not credentials:
         return {}
     return _sessions.get(credentials.credentials, {})
@@ -111,13 +98,21 @@ def _validate_cron_expr(expr: str) -> bool:
     if len(parts) != 5:
         return False
     try:
-        CronTrigger(minute=parts[0], hour=parts[1], day=parts[2], month=parts[3], day_of_week=parts[4])
+        CronTrigger(
+            minute=parts[0],
+            hour=parts[1],
+            day=parts[2],
+            month=parts[3],
+            day_of_week=parts[4],
+        )
         return True
     except Exception:
         return False
 
 
-def _validate_input(value: str, label: str, min_len: int = 1, max_len: int = 500) -> str:
+def _validate_input(
+    value: str, label: str, min_len: int = 1, max_len: int = 500
+) -> str:
     if not isinstance(value, str):
         raise HTTPException(400, f"{label} 必须是字符串")
     if len(value.strip()) < min_len:
@@ -135,7 +130,9 @@ def _send_email_notification(subject: str, body: str) -> None:
         msg["Subject"] = subject
         msg["From"] = settings.email_user
         msg["To"] = settings.email_to
-        with smtplib.SMTP_SSL(settings.email_smtp_host, settings.email_smtp_port, timeout=10) as server:
+        with smtplib.SMTP_SSL(
+            settings.email_smtp_host, settings.email_smtp_port, timeout=10
+        ) as server:
             server.login(settings.email_user, settings.email_pass)
             server.send_message(msg)
         logger.info("邮件通知已发送")
@@ -150,24 +147,36 @@ def _send_dingtalk_notification(title: str, text: str) -> None:
         import base64
         import hmac
         import urllib.request
-        from urllib.parse import urlencode, parse_qsl, urlsplit, urlunsplit
+        from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
         timestamp = str(int(time.time() * 1000))
-        string_to_sign = f"{timestamp}\n{settings.dingtalk_secret}".encode("utf-8")
+        string_to_sign = f"{timestamp}\n{settings.dingtalk_secret}".encode()
         signature = base64.b64encode(
-            hmac.new(settings.dingtalk_secret.encode("utf-8"), string_to_sign, hashlib.sha256).digest()
+            hmac.new(
+                settings.dingtalk_secret.encode("utf-8"), string_to_sign, hashlib.sha256
+            ).digest()
         ).decode()
 
         parsed = urlsplit(settings.dingtalk_webhook)
         query = parse_qsl(parsed.query, keep_blank_values=True)
         query.extend((("timestamp", timestamp), ("sign", signature)))
-        signed_url = urlunsplit((parsed.scheme, parsed.netloc, parsed.path, urlencode(query), parsed.fragment))
+        signed_url = urlunsplit(
+            (
+                parsed.scheme,
+                parsed.netloc,
+                parsed.path,
+                urlencode(query),
+                parsed.fragment,
+            )
+        )
 
-        payload = json.dumps({
-            "msgtype": "markdown",
-            "markdown": {"title": title, "text": text},
-            "at": {"isAtAll": False},
-        }).encode("utf-8")
+        payload = json.dumps(
+            {
+                "msgtype": "markdown",
+                "markdown": {"title": title, "text": text},
+                "at": {"isAtAll": False},
+            }
+        ).encode("utf-8")
 
         req = urllib.request.Request(
             signed_url,
@@ -208,7 +217,10 @@ app = FastAPI(
     openapi_tags=[
         {"name": "health", "description": "Health check endpoints"},
         {"name": "auth", "description": "User authentication (register/login/token)"},
-        {"name": "accounts", "description": "Douyin account management (CRUD + cookie upload)"},
+        {
+            "name": "accounts",
+            "description": "Douyin account management (CRUD + cookie upload)",
+        },
         {"name": "friends", "description": "Friend list sync and management"},
         {"name": "messages", "description": "Message sending and template preview"},
         {"name": "tasks", "description": "Scheduled task management (CRUD cron jobs)"},
@@ -240,7 +252,10 @@ async def app_exception_handler(request: Request, exc: HTTPException):
 async def rate_limit_middleware(request: Request, call_next):
     client_ip = request.client.host if request.client else "unknown"
     if _check_rate_limit(client_ip, max_requests=120, window=60):
-        return JSONResponse(status_code=429, content={"code": "RATE_001", "message": "请求过于频繁，请稍后再试"})
+        return JSONResponse(
+            status_code=429,
+            content={"code": "RATE_001", "message": "请求过于频繁，请稍后再试"},
+        )
     return await call_next(request)
 
 
@@ -249,7 +264,12 @@ async def metrics():
     return Response(content=get_metrics(), media_type="text/plain")
 
 
-@app.get("/api/health", tags=["health"], summary="Health check", description="Returns system health status including uptime and version")
+@app.get(
+    "/api/health",
+    tags=["health"],
+    summary="Health check",
+    description="Returns system health status including uptime and version",
+)
 async def health_check():
     db_status = "ok"
     try:
@@ -262,6 +282,7 @@ async def health_check():
     playwright_status = "ok"
     try:
         import importlib
+
         importlib.import_module("playwright")
     except Exception:
         playwright_status = "error"
@@ -276,7 +297,12 @@ async def health_check():
     }
 
 
-@app.get("/api/health/ready", tags=["health"], summary="Readiness check", description="Returns readiness state checking DB and Playwright availability")
+@app.get(
+    "/api/health/ready",
+    tags=["health"],
+    summary="Readiness check",
+    description="Returns readiness state checking DB and Playwright availability",
+)
 async def health_ready():
     db_ok = True
     try:
@@ -289,6 +315,7 @@ async def health_ready():
     playwright_ok = True
     try:
         import importlib
+
         importlib.import_module("playwright")
     except Exception:
         playwright_ok = False
@@ -301,7 +328,12 @@ async def health_ready():
     }
 
 
-@app.get("/api/health/live", tags=["health"], summary="Liveness check", description="Simple liveness probe")
+@app.get(
+    "/api/health/live",
+    tags=["health"],
+    summary="Liveness check",
+    description="Simple liveness probe",
+)
 async def health_live():
     return {"status": "ok"}
 
@@ -309,10 +341,17 @@ async def health_live():
 # ── Auth ────────────────────────────────────────────────────
 
 
-@app.post("/api/auth/login", tags=["auth"], summary="User login", description="Authenticate with username and password to receive a session token")
+@app.post(
+    "/api/auth/login",
+    tags=["auth"],
+    summary="User login",
+    description="Authenticate with username and password to receive a session token",
+)
 async def login(req: LoginRequest):
     db = await get_db()
-    row = await db.execute_fetchall("SELECT * FROM users WHERE username=?", (req.username,))
+    row = await db.execute_fetchall(
+        "SELECT * FROM users WHERE username=?", (req.username,)
+    )
     await db.close()
     if not row:
         raise app_error("AUTH_001", 401, "用户名或密码错误")
@@ -328,14 +367,21 @@ async def login(req: LoginRequest):
     return {"token": token, "user": _sessions[token]}
 
 
-@app.post("/api/auth/register", tags=["auth"], summary="User registration", description="Create a new user account if registration is enabled")
+@app.post(
+    "/api/auth/register",
+    tags=["auth"],
+    summary="User registration",
+    description="Create a new user account if registration is enabled",
+)
 async def register(req: RegisterRequest):
     if not settings.allow_registration:
         raise app_error("AUTH_003", 403, "注册功能已关闭")
     username = _validate_input(req.username, "用户名", min_len=2, max_len=50)
     password = _validate_input(req.password, "密码", min_len=4, max_len=100)
     db = await get_db()
-    existing = await db.execute_fetchall("SELECT id FROM users WHERE username=?", (username,))
+    existing = await db.execute_fetchall(
+        "SELECT id FROM users WHERE username=?", (username,)
+    )
     if existing:
         await db.close()
         raise HTTPException(400, "用户名已存在")
@@ -351,12 +397,22 @@ async def register(req: RegisterRequest):
     return {"token": token, "user": _sessions[token]}
 
 
-@app.get("/api/auth/me", tags=["auth"], summary="Get current user", description="Returns the currently authenticated user's profile")
+@app.get(
+    "/api/auth/me",
+    tags=["auth"],
+    summary="Get current user",
+    description="Returns the currently authenticated user's profile",
+)
 async def me(user: dict[str, Any] = Depends(require_user)):
     return {"user": user}
 
 
-@app.post("/api/auth/logout", tags=["auth"], summary="User logout", description="Invalidate the current session token")
+@app.post(
+    "/api/auth/logout",
+    tags=["auth"],
+    summary="User logout",
+    description="Invalidate the current session token",
+)
 async def logout(credentials: HTTPAuthorizationCredentials = Depends(security)):
     if credentials and credentials.credentials in _sessions:
         del _sessions[credentials.credentials]
@@ -366,7 +422,12 @@ async def logout(credentials: HTTPAuthorizationCredentials = Depends(security)):
 # ── Accounts ────────────────────────────────────────────────
 
 
-@app.get("/api/accounts", tags=["accounts"], summary="List accounts", description="List all douyin accounts belonging to the user (or all for admins)")
+@app.get(
+    "/api/accounts",
+    tags=["accounts"],
+    summary="List accounts",
+    description="List all douyin accounts belonging to the user (or all for admins)",
+)
 async def list_accounts(user: dict[str, Any] = Depends(require_user)):
     db = await get_db()
     if user["is_admin"]:
@@ -379,7 +440,12 @@ async def list_accounts(user: dict[str, Any] = Depends(require_user)):
     return [dict(r) for r in rows]
 
 
-@app.post("/api/accounts", tags=["accounts"], summary="Create account", description="Create a new douyin account with name and phone number")
+@app.post(
+    "/api/accounts",
+    tags=["accounts"],
+    summary="Create account",
+    description="Create a new douyin account with name and phone number",
+)
 async def create_account(req: Request, user: dict[str, Any] = Depends(require_user)):
     data = await req.json()
     name = _validate_input(data.get("name", ""), "账号名称", min_len=1, max_len=100)
@@ -394,8 +460,15 @@ async def create_account(req: Request, user: dict[str, Any] = Depends(require_us
     return {"id": cursor.lastrowid}
 
 
-@app.put("/api/accounts/{account_id}", tags=["accounts"], summary="Update account", description="Update an existing douyin account's name, phone, and send gap settings")
-async def update_account(account_id: int, req: Request, user: dict[str, Any] = Depends(require_user)):
+@app.put(
+    "/api/accounts/{account_id}",
+    tags=["accounts"],
+    summary="Update account",
+    description="Update an existing douyin account's name, phone, and send gap settings",
+)
+async def update_account(
+    account_id: int, req: Request, user: dict[str, Any] = Depends(require_user)
+):
     data = await req.json()
     db = await get_db()
     if not user["is_admin"]:
@@ -411,14 +484,26 @@ async def update_account(account_id: int, req: Request, user: dict[str, Any] = D
     send_gap_max = int(data.get("send_gap_max", 20))
     await db.execute(
         "UPDATE accounts SET name=?, phone=?, send_gap_min=?, send_gap_max=?, updated_at=? WHERE id=?",
-        (name, phone, send_gap_min, send_gap_max, datetime.now().isoformat(), account_id),
+        (
+            name,
+            phone,
+            send_gap_min,
+            send_gap_max,
+            datetime.now().isoformat(),
+            account_id,
+        ),
     )
     await db.commit()
     await db.close()
     return {"success": True}
 
 
-@app.delete("/api/accounts/{account_id}", tags=["accounts"], summary="Delete account", description="Delete a douyin account and all associated tasks, friends, and history")
+@app.delete(
+    "/api/accounts/{account_id}",
+    tags=["accounts"],
+    summary="Delete account",
+    description="Delete a douyin account and all associated tasks, friends, and history",
+)
 async def delete_account(account_id: int, user: dict[str, Any] = Depends(require_user)):
     db = await get_db()
     if not user["is_admin"]:
@@ -437,8 +522,15 @@ async def delete_account(account_id: int, user: dict[str, Any] = Depends(require
     return {"success": True}
 
 
-@app.post("/api/accounts/{account_id}/cookies", tags=["accounts"], summary="Upload cookies", description="Upload browser cookies for a douyin account to authenticate automation")
-async def upload_cookies(account_id: int, req: Request, user: dict[str, Any] = Depends(require_user)):
+@app.post(
+    "/api/accounts/{account_id}/cookies",
+    tags=["accounts"],
+    summary="Upload cookies",
+    description="Upload browser cookies for a douyin account to authenticate automation",
+)
+async def upload_cookies(
+    account_id: int, req: Request, user: dict[str, Any] = Depends(require_user)
+):
     db = await get_db()
     if not user["is_admin"]:
         row = await db.execute_fetchall(
@@ -468,15 +560,26 @@ async def upload_cookies(account_id: int, req: Request, user: dict[str, Any] = D
 
     await db.execute(
         "UPDATE accounts SET cookies=?, updated_at=? WHERE id=?",
-        (json.dumps(validated, ensure_ascii=False), datetime.now().isoformat(), account_id),
+        (
+            json.dumps(validated, ensure_ascii=False),
+            datetime.now().isoformat(),
+            account_id,
+        ),
     )
     await db.commit()
     await db.close()
     return {"success": True, "cookie_count": len(validated)}
 
 
-@app.post("/api/accounts/{account_id}/storage-state", tags=["accounts"], summary="Upload storage state", description="Upload Playwright storage state JSON for a douyin account")
-async def upload_storage_state(account_id: int, req: Request, user: dict[str, Any] = Depends(require_user)):
+@app.post(
+    "/api/accounts/{account_id}/storage-state",
+    tags=["accounts"],
+    summary="Upload storage state",
+    description="Upload Playwright storage state JSON for a douyin account",
+)
+async def upload_storage_state(
+    account_id: int, req: Request, user: dict[str, Any] = Depends(require_user)
+):
     db = await get_db()
     if not user["is_admin"]:
         row = await db.execute_fetchall(
@@ -498,15 +601,26 @@ async def upload_storage_state(account_id: int, req: Request, user: dict[str, An
 
     await db.execute(
         "UPDATE accounts SET storage_state=?, updated_at=? WHERE id=?",
-        (json.dumps(state_raw, ensure_ascii=False), datetime.now().isoformat(), account_id),
+        (
+            json.dumps(state_raw, ensure_ascii=False),
+            datetime.now().isoformat(),
+            account_id,
+        ),
     )
     await db.commit()
     await db.close()
     return {"success": True}
 
 
-@app.post("/api/accounts/{account_id}/verify-login", tags=["accounts"], summary="Verify login status", description="Check if the account's cookies/storage state are still valid by attempting a login")
-async def verify_account_login(account_id: int, user: dict[str, Any] = Depends(require_user)):
+@app.post(
+    "/api/accounts/{account_id}/verify-login",
+    tags=["accounts"],
+    summary="Verify login status",
+    description="Check if the account's cookies/storage state are still valid by attempting a login",
+)
+async def verify_account_login(
+    account_id: int, user: dict[str, Any] = Depends(require_user)
+):
     db = await get_db()
     if not user["is_admin"]:
         row = await db.execute_fetchall(
@@ -527,8 +641,11 @@ async def verify_account_login(account_id: int, user: dict[str, Any] = Depends(r
 
     browser = None
     try:
-        from core.automation import launch_browser, DOUYIN_CHAT_URL
-        browser, context, page = launch_browser(cookies=cookies, storage_state=storage_state)
+        from core.automation import DOUYIN_CHAT_URL, launch_browser
+
+        browser, context, page = launch_browser(
+            cookies=cookies, storage_state=storage_state
+        )
         try:
             page.goto(DOUYIN_CHAT_URL, timeout=30000, wait_until="domcontentloaded")
             page.wait_for_timeout(8000)
@@ -544,13 +661,21 @@ async def verify_account_login(account_id: int, user: dict[str, Any] = Depends(r
 # ── Friends ─────────────────────────────────────────────────
 
 
-@app.get("/api/friends", tags=["friends"], summary="List friends", description="List all friends, optionally filtered by account_id")
-async def list_friends(account_id: int = 0, user: dict[str, Any] = Depends(require_user)):
+@app.get(
+    "/api/friends",
+    tags=["friends"],
+    summary="List friends",
+    description="List all friends, optionally filtered by account_id",
+)
+async def list_friends(
+    account_id: int = 0, user: dict[str, Any] = Depends(require_user)
+):
     db = await get_db()
     if account_id:
         if not user["is_admin"]:
             acc = await db.execute_fetchall(
-                "SELECT id FROM accounts WHERE id=? AND user_id=?", (account_id, user["id"])
+                "SELECT id FROM accounts WHERE id=? AND user_id=?",
+                (account_id, user["id"]),
             )
             if not acc:
                 await db.close()
@@ -569,7 +694,12 @@ async def list_friends(account_id: int = 0, user: dict[str, Any] = Depends(requi
     return [dict(r) for r in rows]
 
 
-@app.post("/api/friends/sync", tags=["friends"], summary="Sync friends", description="Fetch and sync the friend list from douyin chat contacts for a given account")
+@app.post(
+    "/api/friends/sync",
+    tags=["friends"],
+    summary="Sync friends",
+    description="Fetch and sync the friend list from douyin chat contacts for a given account",
+)
 async def sync_friends(req: Request, user: dict[str, Any] = Depends(require_user)):
     data = await req.json()
     account_id = data.get("account_id", 0)
@@ -577,7 +707,8 @@ async def sync_friends(req: Request, user: dict[str, Any] = Depends(require_user
     db = await get_db()
     if not user["is_admin"]:
         row = await db.execute_fetchall(
-            "SELECT id, cookies, storage_state FROM accounts WHERE id=? AND user_id=?", (account_id, user["id"])
+            "SELECT id, cookies, storage_state FROM accounts WHERE id=? AND user_id=?",
+            (account_id, user["id"]),
         )
         if not row:
             await db.close()
@@ -630,12 +761,19 @@ async def sync_friends(req: Request, user: dict[str, Any] = Depends(require_user
 # ── Messages / Send ─────────────────────────────────────────
 
 
-@app.post("/api/messages/send", tags=["messages"], summary="Send message", description="Send a message to a friend via douyin chat automation")
+@app.post(
+    "/api/messages/send",
+    tags=["messages"],
+    summary="Send message",
+    description="Send a message to a friend via douyin chat automation",
+)
 async def send_message(req: Request, user: dict[str, Any] = Depends(require_user)):
     data = await req.json()
 
     account_id = data.get("account_id", 0)
-    friend_name = _validate_input(data.get("friend_name", ""), "好友名称", min_len=1, max_len=100)
+    friend_name = _validate_input(
+        data.get("friend_name", ""), "好友名称", min_len=1, max_len=100
+    )
     message = str(data.get("message", ""))[:5000]
     message_type = str(data.get("message_type", "text"))
     dry_run = bool(data.get("dry_run", False))
@@ -648,7 +786,8 @@ async def send_message(req: Request, user: dict[str, Any] = Depends(require_user
     db = await get_db()
     if not user["is_admin"]:
         row = await db.execute_fetchall(
-            "SELECT id, cookies, storage_state FROM accounts WHERE id=? AND user_id=?", (account_id, user["id"])
+            "SELECT id, cookies, storage_state FROM accounts WHERE id=? AND user_id=?",
+            (account_id, user["id"]),
         )
         if not row:
             await db.close()
@@ -705,10 +844,19 @@ async def send_message(req: Request, user: dict[str, Any] = Depends(require_user
     if "限流" in reason or "频繁" in reason:
         schedule_rate_limit_cooldown(settings.rate_limit_cooldown_minutes)
 
-    return {"success": success, "code": "SEND_001" if not success else None, "message": reason}
+    return {
+        "success": success,
+        "code": "SEND_001" if not success else None,
+        "message": reason,
+    }
 
 
-@app.post("/api/messages/preview", tags=["messages"], summary="Preview message template", description="Render a message template with provided context variables for preview")
+@app.post(
+    "/api/messages/preview",
+    tags=["messages"],
+    summary="Preview message template",
+    description="Render a message template with provided context variables for preview",
+)
 async def preview_template(req: Request, user: dict[str, Any] = Depends(require_user)):
     data = await req.json()
     template = str(data.get("template", ""))[:5000]
@@ -719,7 +867,15 @@ async def preview_template(req: Request, user: dict[str, Any] = Depends(require_
         "from": str(data.get("from", "一言")),
         "date": datetime.now().strftime("%Y-%m-%d"),
         "time": datetime.now().strftime("%H:%M"),
-        "weekday": ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"][datetime.now().weekday()],
+        "weekday": [
+            "星期一",
+            "星期二",
+            "星期三",
+            "星期四",
+            "星期五",
+            "星期六",
+            "星期日",
+        ][datetime.now().weekday()],
         "spark_days": str(data.get("spark_days", "100")),
     }
     rendered = render_template(template, context)
@@ -729,7 +885,12 @@ async def preview_template(req: Request, user: dict[str, Any] = Depends(require_
 # ── Tasks ───────────────────────────────────────────────────
 
 
-@app.get("/api/tasks", tags=["tasks"], summary="List tasks", description="List all scheduled tasks belonging to the user (or all for admins)")
+@app.get(
+    "/api/tasks",
+    tags=["tasks"],
+    summary="List tasks",
+    description="List all scheduled tasks belonging to the user (or all for admins)",
+)
 async def list_tasks(user: dict[str, Any] = Depends(require_user)):
     db = await get_db()
     if user["is_admin"]:
@@ -742,11 +903,18 @@ async def list_tasks(user: dict[str, Any] = Depends(require_user)):
     return [dict(r) for r in rows]
 
 
-@app.post("/api/tasks", tags=["tasks"], summary="Create task", description="Create a new scheduled task with a cron expression for automated message sending")
+@app.post(
+    "/api/tasks",
+    tags=["tasks"],
+    summary="Create task",
+    description="Create a new scheduled task with a cron expression for automated message sending",
+)
 async def create_task(req: Request, user: dict[str, Any] = Depends(require_user)):
     data = await req.json()
     account_id = int(data.get("account_id", 0))
-    friend_name = _validate_input(data.get("friend_name", ""), "好友名称", min_len=1, max_len=100)
+    friend_name = _validate_input(
+        data.get("friend_name", ""), "好友名称", min_len=1, max_len=100
+    )
     message = str(data.get("message", ""))[:5000]
     message_type = str(data.get("message_type", "text"))
     cron_expr = str(data.get("cron_expr", "0 9 * * *"))
@@ -773,8 +941,15 @@ async def create_task(req: Request, user: dict[str, Any] = Depends(require_user)
     return {"id": task_id}
 
 
-@app.put("/api/tasks/{task_id}", tags=["tasks"], summary="Update task", description="Update an existing scheduled task's account, message, cron expression, and active status")
-async def update_task(task_id: int, req: Request, user: dict[str, Any] = Depends(require_user)):
+@app.put(
+    "/api/tasks/{task_id}",
+    tags=["tasks"],
+    summary="Update task",
+    description="Update an existing scheduled task's account, message, cron expression, and active status",
+)
+async def update_task(
+    task_id: int, req: Request, user: dict[str, Any] = Depends(require_user)
+):
     data = await req.json()
     db = await get_db()
     if not user["is_admin"]:
@@ -804,7 +979,12 @@ async def update_task(task_id: int, req: Request, user: dict[str, Any] = Depends
     return {"success": True}
 
 
-@app.delete("/api/tasks/{task_id}", tags=["tasks"], summary="Delete task", description="Delete a scheduled task permanently")
+@app.delete(
+    "/api/tasks/{task_id}",
+    tags=["tasks"],
+    summary="Delete task",
+    description="Delete a scheduled task permanently",
+)
 async def delete_task(task_id: int, user: dict[str, Any] = Depends(require_user)):
     db = await get_db()
     if not user["is_admin"]:
@@ -820,7 +1000,12 @@ async def delete_task(task_id: int, user: dict[str, Any] = Depends(require_user)
     return {"success": True}
 
 
-@app.post("/api/tasks/{task_id}/run", tags=["tasks"], summary="Run task now", description="Trigger a scheduled task to execute immediately instead of waiting for its cron schedule")
+@app.post(
+    "/api/tasks/{task_id}/run",
+    tags=["tasks"],
+    summary="Run task now",
+    description="Trigger a scheduled task to execute immediately instead of waiting for its cron schedule",
+)
 async def run_task_now(task_id: int, user: dict[str, Any] = Depends(require_user)):
     db = await get_db()
     if not user["is_admin"]:
@@ -841,7 +1026,8 @@ async def run_task_now(task_id: int, user: dict[str, Any] = Depends(require_user
 
     if not user["is_admin"]:
         acc = await db.execute_fetchall(
-            "SELECT id, cookies, storage_state FROM accounts WHERE id=? AND user_id=?", (account_id, user["id"])
+            "SELECT id, cookies, storage_state FROM accounts WHERE id=? AND user_id=?",
+            (account_id, user["id"]),
         )
     else:
         acc = await db.execute_fetchall(
@@ -886,7 +1072,9 @@ async def run_task_now(task_id: int, user: dict[str, Any] = Depends(require_user
     await db.commit()
 
     if success:
-        msg_hash = message_hash(task["friend_name"], task["message"], task.get("message_type", "text"))
+        msg_hash = message_hash(
+            task["friend_name"], task["message"], task.get("message_type", "text")
+        )
         await db.execute(
             "INSERT INTO history(account_id, user_id, friend_name, message_hash, status) VALUES(?,?,?,?,?)",
             (account_id, user["id"], task["friend_name"], msg_hash, "success"),
@@ -904,10 +1092,19 @@ async def run_task_now(task_id: int, user: dict[str, Any] = Depends(require_user
             f"### 发送成功\n\n好友: {task['friend_name']}\n消息: {task['message'][:50]}",
         )
 
-    return {"success": success, "code": "SEND_001" if not success else None, "message": reason}
+    return {
+        "success": success,
+        "code": "SEND_001" if not success else None,
+        "message": reason,
+    }
 
 
-@app.post("/api/tasks/run-all", tags=["tasks"], summary="Run all tasks", description="Execute all active scheduled tasks immediately")
+@app.post(
+    "/api/tasks/run-all",
+    tags=["tasks"],
+    summary="Run all tasks",
+    description="Execute all active scheduled tasks immediately",
+)
 async def run_all_tasks(user: dict[str, Any] = Depends(require_user)):
     db = await get_db()
     if user["is_admin"]:
@@ -926,16 +1123,24 @@ async def run_all_tasks(user: dict[str, Any] = Depends(require_user)):
             db2 = await get_db()
             if not user["is_admin"]:
                 acc = await db2.execute_fetchall(
-                    "SELECT id, cookies, storage_state FROM accounts WHERE id=? AND user_id=?", (account_id, user["id"])
+                    "SELECT id, cookies, storage_state FROM accounts WHERE id=? AND user_id=?",
+                    (account_id, user["id"]),
                 )
             else:
                 acc = await db2.execute_fetchall(
-                    "SELECT id, cookies, storage_state FROM accounts WHERE id=?", (account_id,)
+                    "SELECT id, cookies, storage_state FROM accounts WHERE id=?",
+                    (account_id,),
                 )
             await db2.close()
 
             if not acc:
-                results.append({"task_id": task_dict["id"], "success": False, "message": "账号不存在"})
+                results.append(
+                    {
+                        "task_id": task_dict["id"],
+                        "success": False,
+                        "message": "账号不存在",
+                    }
+                )
                 continue
 
             account = dict(acc[0])
@@ -944,7 +1149,13 @@ async def run_all_tasks(user: dict[str, Any] = Depends(require_user)):
             storage_state = json.loads(storage_state_raw) if storage_state_raw else None
 
             if has_rate_limit_cooldown():
-                results.append({"task_id": task_dict["id"], "success": False, "message": "限流冷却中"})
+                results.append(
+                    {
+                        "task_id": task_dict["id"],
+                        "success": False,
+                        "message": "限流冷却中",
+                    }
+                )
                 continue
 
             success, reason = run_send_task(
@@ -963,18 +1174,28 @@ async def run_all_tasks(user: dict[str, Any] = Depends(require_user)):
             )
             await db3.execute(
                 "INSERT INTO logs(account_id, task_id, user_id, status, message) VALUES(?,?,?,?,?)",
-                (account_id, task_dict["id"], user["id"], "success" if success else "error", reason),
+                (
+                    account_id,
+                    task_dict["id"],
+                    user["id"],
+                    "success" if success else "error",
+                    reason,
+                ),
             )
             await db3.commit()
             await db3.close()
 
-            results.append({"task_id": task_dict["id"], "success": success, "message": reason})
+            results.append(
+                {"task_id": task_dict["id"], "success": success, "message": reason}
+            )
 
             if "限流" in reason or "频繁" in reason:
                 schedule_rate_limit_cooldown(settings.rate_limit_cooldown_minutes)
                 break
         except Exception as e:
-            results.append({"task_id": task_dict.get("id", 0), "success": False, "message": str(e)})
+            results.append(
+                {"task_id": task_dict.get("id", 0), "success": False, "message": str(e)}
+            )
 
     return {"results": results}
 
@@ -982,15 +1203,23 @@ async def run_all_tasks(user: dict[str, Any] = Depends(require_user)):
 # ── Logs ────────────────────────────────────────────────────
 
 
-@app.get("/api/logs", tags=["logs"], summary="List logs", description="List recent system logs, optionally limited by count")
+@app.get(
+    "/api/logs",
+    tags=["logs"],
+    summary="List logs",
+    description="List recent system logs, optionally limited by count",
+)
 async def list_logs(limit: int = 50, user: dict[str, Any] = Depends(require_user)):
     limit = min(max(limit, 1), 500)
     db = await get_db()
     if user["is_admin"]:
-        rows = await db.execute_fetchall("SELECT * FROM logs ORDER BY id DESC LIMIT ?", (limit,))
+        rows = await db.execute_fetchall(
+            "SELECT * FROM logs ORDER BY id DESC LIMIT ?", (limit,)
+        )
     else:
         rows = await db.execute_fetchall(
-            "SELECT * FROM logs WHERE user_id=? ORDER BY id DESC LIMIT ?", (user["id"], limit)
+            "SELECT * FROM logs WHERE user_id=? ORDER BY id DESC LIMIT ?",
+            (user["id"], limit),
         )
     await db.close()
     return [dict(r) for r in rows]
@@ -999,7 +1228,12 @@ async def list_logs(limit: int = 50, user: dict[str, Any] = Depends(require_user
 # ── Settings ────────────────────────────────────────────────
 
 
-@app.get("/api/settings", tags=["settings"], summary="Get settings", description="Retrieve current system configuration settings")
+@app.get(
+    "/api/settings",
+    tags=["settings"],
+    summary="Get settings",
+    description="Retrieve current system configuration settings",
+)
 async def get_settings(user: dict[str, Any] = Depends(require_user)):
     cfg = load_config()
     return {
@@ -1015,16 +1249,30 @@ async def get_settings(user: dict[str, Any] = Depends(require_user)):
     }
 
 
-@app.post("/api/settings", tags=["settings"], summary="Update settings", description="Update system configuration settings (admin only)")
+@app.post(
+    "/api/settings",
+    tags=["settings"],
+    summary="Update settings",
+    description="Update system configuration settings (admin only)",
+)
 async def update_settings(req: Request, user: dict[str, Any] = Depends(require_admin)):
     data = await req.json()
     cfg = load_config()
-    for key in ("schedule_time", "jitter_minutes", "send_gap_min", "send_gap_max", "max_friends_per_run", "daily_limit", "rate_limit_cooldown_minutes", "retry_delay_minutes"):
+    for key in (
+        "schedule_time",
+        "jitter_minutes",
+        "send_gap_min",
+        "send_gap_max",
+        "max_friends_per_run",
+        "daily_limit",
+        "rate_limit_cooldown_minutes",
+        "retry_delay_minutes",
+    ):
         if key in data:
             cfg[key] = data[key]
     save_config(cfg)
 
-    if "admin_pass" in data and data["admin_pass"]:
+    if data.get("admin_pass"):
         db = await get_db()
         await db.execute(
             "UPDATE users SET password_hash=? WHERE username='admin'",
@@ -1039,23 +1287,37 @@ async def update_settings(req: Request, user: dict[str, Any] = Depends(require_a
 # ── Stats ───────────────────────────────────────────────────
 
 
-@app.get("/api/stats", tags=["settings"], summary="Dashboard stats", description="Get dashboard statistics including account, task, friend, and today's sent message counts")
+@app.get(
+    "/api/stats",
+    tags=["settings"],
+    summary="Dashboard stats",
+    description="Get dashboard statistics including account, task, friend, and today's sent message counts",
+)
 async def dashboard_stats(user: dict[str, Any] = Depends(require_user)):
     db = await get_db()
     uid = user["id"]
     if user["is_admin"]:
         ac = await db.execute_fetchall("SELECT COUNT(*) as c FROM accounts")
-        tk = await db.execute_fetchall("SELECT COUNT(*) as c FROM tasks WHERE is_active=1")
+        tk = await db.execute_fetchall(
+            "SELECT COUNT(*) as c FROM tasks WHERE is_active=1"
+        )
         fr = await db.execute_fetchall("SELECT COUNT(*) as c FROM friends")
         td = await db.execute_fetchall(
             "SELECT COUNT(*) as c FROM logs WHERE status='success' AND date(created_at)=date('now')"
         )
     else:
-        ac = await db.execute_fetchall("SELECT COUNT(*) as c FROM accounts WHERE user_id=?", (uid,))
-        tk = await db.execute_fetchall("SELECT COUNT(*) as c FROM tasks WHERE user_id=? AND is_active=1", (uid,))
-        fr = await db.execute_fetchall("SELECT COUNT(*) as c FROM friends WHERE user_id=?", (uid,))
+        ac = await db.execute_fetchall(
+            "SELECT COUNT(*) as c FROM accounts WHERE user_id=?", (uid,)
+        )
+        tk = await db.execute_fetchall(
+            "SELECT COUNT(*) as c FROM tasks WHERE user_id=? AND is_active=1", (uid,)
+        )
+        fr = await db.execute_fetchall(
+            "SELECT COUNT(*) as c FROM friends WHERE user_id=?", (uid,)
+        )
         td = await db.execute_fetchall(
-            "SELECT COUNT(*) as c FROM logs WHERE user_id=? AND status='success' AND date(created_at)=date('now')", (uid,)
+            "SELECT COUNT(*) as c FROM logs WHERE user_id=? AND status='success' AND date(created_at)=date('now')",
+            (uid,),
         )
     await db.close()
     return {
@@ -1069,7 +1331,12 @@ async def dashboard_stats(user: dict[str, Any] = Depends(require_user)):
 # ── Admin ───────────────────────────────────────────────────
 
 
-@app.get("/api/admin/users", tags=["admin"], summary="List all users", description="List all registered users in the system (admin only)")
+@app.get(
+    "/api/admin/users",
+    tags=["admin"],
+    summary="List all users",
+    description="List all registered users in the system (admin only)",
+)
 async def list_users(user: dict[str, Any] = Depends(require_admin)):
     db = await get_db()
     rows = await db.execute_fetchall(
@@ -1079,7 +1346,12 @@ async def list_users(user: dict[str, Any] = Depends(require_admin)):
     return [dict(r) for r in rows]
 
 
-@app.delete("/api/admin/users/{user_id}", tags=["admin"], summary="Delete user", description="Delete a user and all associated data (admin only, cannot delete self)")
+@app.delete(
+    "/api/admin/users/{user_id}",
+    tags=["admin"],
+    summary="Delete user",
+    description="Delete a user and all associated data (admin only, cannot delete self)",
+)
 async def delete_user(user_id: int, user: dict[str, Any] = Depends(require_admin)):
     if user_id == user["id"]:
         raise HTTPException(400, "不能删除自己")
@@ -1111,4 +1383,5 @@ async def serve_index():
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("app:app", host=settings.host, port=settings.port, reload=True)

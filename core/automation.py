@@ -4,12 +4,10 @@ import functools
 import hashlib
 import json
 import logging
-import random
 import re
 import secrets
 import time
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
@@ -32,19 +30,19 @@ DOUYIN_CHAT_URL = "https://www.douyin.com/chat"
 STATE_PATH = DATA_DIR / "state.json"
 
 LOGIN_MARKERS = (
-    'text=私信',
+    "text=私信",
     'input[placeholder*="搜索"]',
     '[role="textbox"][placeholder*="搜索"]',
 )
 LOGIN_REQUIRED_MARKERS = (
-    'text=扫码登录',
-    'text=验证码登录',
-    'text=登录后',
+    "text=扫码登录",
+    "text=验证码登录",
+    "text=登录后",
 )
 RISK_MARKERS = (
-    'text=安全验证',
-    'text=完成验证',
-    'text=验证身份',
+    "text=安全验证",
+    "text=完成验证",
+    "text=验证身份",
 )
 SEARCH_INPUTS = (
     'input[placeholder*="搜索"]',
@@ -64,20 +62,20 @@ MESSAGE_INPUTS = (
 )
 IMAGE_INPUTS = ('input[type="file"][accept*="image"]', 'input[type="file"]')
 STICKER_BUTTONS = (
-    'svg.messageMsgInputiconAction',
+    "svg.messageMsgInputiconAction",
     'button[aria-label*="表情"]',
     '[role="button"][aria-label*="表情"]',
     '[title*="表情"]',
 )
 STICKER_PANELS = (
-    '.componentsemojiemojiPanel',
+    ".componentsemojiemojiPanel",
     '[class*="emojiPanel"]',
     '[role="dialog"]',
     '[class*="sticker"]',
 )
 SEND_BUTTONS = (
     '[class*="messageMsgInputpublishBtn"]',
-    '.e2e-send-msg-bt',
+    ".e2e-send-msg-bt",
     'button[aria-label*="发送"]',
     '[role="button"][aria-label*="发送"]',
 )
@@ -91,22 +89,36 @@ CHAT_PANEL_MARKERS = (
 )
 
 RATE_LIMIT_KEYWORDS = [
-    "操作频繁", "操作太频繁", "发送过于频繁",
-    "请稍后再试", "稍后再试",
-    "安全验证", "滑动验证", "验证码", "验证中心", "人机验证",
-    "网络异常", "请勿频繁",
+    "操作频繁",
+    "操作太频繁",
+    "发送过于频繁",
+    "请稍后再试",
+    "稍后再试",
+    "安全验证",
+    "滑动验证",
+    "验证码",
+    "验证中心",
+    "人机验证",
+    "网络异常",
+    "请勿频繁",
 ]
 
 LOGIN_TEXTS = ["扫码登录", "验证码登录", "登录后查看", "登录后即可"]
 
 MESSAGE_TEMPLATE_PLACEHOLDERS = {
-    "account", "friend", "yiyan", "from", "date", "time", "weekday",
+    "account",
+    "friend",
+    "yiyan",
+    "from",
+    "date",
+    "time",
+    "weekday",
     "spark_days",
 }
 
 LATEST_OUTGOING_MESSAGE = (
     '.messageMessageListlist [data-index="0"] '
-    '.messageMessageBoxmessageBox:has(.messageMessageBoxcontentBox.messageMessageBoxisFromMe)'
+    ".messageMessageBoxmessageBox:has(.messageMessageBoxcontentBox.messageMessageBoxisFromMe)"
 )
 
 SEND_FAILURE_MARKERS = (
@@ -160,19 +172,28 @@ def _normalize_cookies(cookies: list[Any]) -> list[dict[str, Any]]:
             expires = -1
 
         same_site_raw = str(cookie.get("sameSite", "")).lower()
-        same_site_map = {"strict": "Strict", "lax": "Lax", "none": "None", "no_restriction": "None"}
+        same_site_map = {
+            "strict": "Strict",
+            "lax": "Lax",
+            "none": "None",
+            "no_restriction": "None",
+        }
         same_site = same_site_map.get(same_site_raw, "Lax")
 
-        normalized.append({
-            "name": name,
-            "value": value,
-            "domain": domain,
-            "path": cookie.get("path") if isinstance(cookie.get("path"), str) else "/",
-            "expires": expires,
-            "httpOnly": bool(cookie.get("httpOnly", False)),
-            "secure": bool(cookie.get("secure", False)),
-            "sameSite": same_site,
-        })
+        normalized.append(
+            {
+                "name": name,
+                "value": value,
+                "domain": domain,
+                "path": cookie.get("path")
+                if isinstance(cookie.get("path"), str)
+                else "/",
+                "expires": expires,
+                "httpOnly": bool(cookie.get("httpOnly", False)),
+                "secure": bool(cookie.get("secure", False)),
+                "sameSite": same_site,
+            }
+        )
     if not normalized:
         raise ValueError("没有有效 Cookie")
     return normalized
@@ -191,11 +212,26 @@ def _css_escape(value: str) -> str:
 
 
 @functools.lru_cache(maxsize=128)
-def _render_cached(template: str, account: str, friend: str, yiyan: str, from_: str, date: str, time: str, weekday: str, spark_days: str) -> str:
+def _render_cached(
+    template: str,
+    account: str,
+    friend: str,
+    yiyan: str,
+    from_: str,
+    date: str,
+    time: str,
+    weekday: str,
+    spark_days: str,
+) -> str:
     context = {
-        "account": account, "friend": friend, "yiyan": yiyan,
-        "from": from_, "date": date, "time": time,
-        "weekday": weekday, "spark_days": spark_days,
+        "account": account,
+        "friend": friend,
+        "yiyan": yiyan,
+        "from": from_,
+        "date": date,
+        "time": time,
+        "weekday": weekday,
+        "spark_days": spark_days,
     }
     return TEMPLATE_REGEX.sub(lambda m: context.get(m.group(1), ""), template)
 
@@ -273,7 +309,9 @@ def _find_contact(page: Page, name: str):
     exact = page.get_by_text(name, exact=True)
     if exact.count():
         return exact.first
-    return page.locator(".conversationConversationItemtitle").filter(has_text=name).first
+    return (
+        page.locator(".conversationConversationItemtitle").filter(has_text=name).first
+    )
 
 
 def _search_result(page: Page, name: str):
@@ -296,12 +334,18 @@ def _search_result(page: Page, name: str):
             row = rows.nth(index)
             try:
                 class_name = row.get_attribute("class") or ""
-                if "wrapper" in class_name or row.get_attribute("data-e2e") == "conversation-item":
+                if (
+                    "wrapper" in class_name
+                    or row.get_attribute("data-e2e") == "conversation-item"
+                ):
                     return row
             except Exception:
                 continue
 
-    candidates = [page.get_by_text(name, exact=True), page.get_by_text(name, exact=False)]
+    candidates = [
+        page.get_by_text(name, exact=True),
+        page.get_by_text(name, exact=False),
+    ]
     for candidate_group in candidates:
         count = candidate_group.count()
         visible = []
@@ -317,7 +361,9 @@ def _search_result(page: Page, name: str):
         if len(visible) > 1:
             return visible[0]
 
-    hidden_titles = page.locator('[class*="conversationConversationItemtitle"]').filter(has_text=name)
+    hidden_titles = page.locator('[class*="conversationConversationItemtitle"]').filter(
+        has_text=name
+    )
     for index in range(hidden_titles.count()):
         row = hidden_titles.nth(index).locator(
             "xpath=ancestor::*[contains(@class, 'conversationConversationItem')][1]"
@@ -325,14 +371,19 @@ def _search_result(page: Page, name: str):
         if row.count() and row.is_visible():
             return row
 
-    for selector in (f'[title="{_css_escape(name)}"]', f'[aria-label="{_css_escape(name)}"]'):
+    for selector in (
+        f'[title="{_css_escape(name)}"]',
+        f'[aria-label="{_css_escape(name)}"]',
+    ):
         candidate = page.locator(selector).first
         if candidate.count() and candidate.is_visible():
             return candidate
     return None
 
 
-def _any_visible(page: Page, selectors: tuple[str, ...], timeout_ms: int = 2000) -> bool:
+def _any_visible(
+    page: Page, selectors: tuple[str, ...], timeout_ms: int = 2000
+) -> bool:
     per_selector = max(250, timeout_ms // max(1, len(selectors)))
     for selector in selectors:
         try:
@@ -407,7 +458,13 @@ def _confirm_outgoing_message(
                 const images = [...content.querySelectorAll('img')];
                 return images.some(image => (image.src || '').includes(expectedResource)) || images.length > 0;
             }""",
-            arg=[LATEST_OUTGOING_MESSAGE, anchor, before_content, resource_key, expected_text],
+            arg=[
+                LATEST_OUTGOING_MESSAGE,
+                anchor,
+                before_content,
+                resource_key,
+                expected_text,
+            ],
             timeout=15000,
         )
         page.wait_for_timeout(3000)
@@ -476,18 +533,23 @@ def send_image(page: Page, image_path: str) -> None:
         raise PageOperationError("图片消息已触发发送，但无法确认是否发送成功") from exc
 
 
-def send_sticker(page: Page, sticker_name: str, fallback_index: int | None = None) -> None:
+def send_sticker(
+    page: Page, sticker_name: str, fallback_index: int | None = None
+) -> None:
     before = _mark_latest_outgoing_message(page)
     try:
         button = _first_visible(page, STICKER_BUTTONS)
         button.click(force=True)
         panel = _first_visible(page, STICKER_PANELS)
 
-        item = panel.locator('.emojiEmojiItememojiItem').filter(has_text=sticker_name)
+        item = panel.locator(".emojiEmojiItememojiItem").filter(has_text=sticker_name)
         for index in range(item.count()):
             candidate = item.nth(index)
-            description = candidate.locator('.emojiEmojiItememojiItemDesc')
-            if description.count() and description.first.inner_text().strip() == sticker_name:
+            description = candidate.locator(".emojiEmojiItememojiItemDesc")
+            if (
+                description.count()
+                and description.first.inner_text().strip() == sticker_name
+            ):
                 candidate.click(force=True)
                 _confirm_outgoing_message(page, before, label=f"表情「{sticker_name}」")
                 return
@@ -589,7 +651,8 @@ def open_and_send_message(
 def message_hash(friend_name: str, message: str, message_type: str) -> str:
     payload = json.dumps(
         {"friend": friend_name, "message": message, "type": message_type},
-        ensure_ascii=False, sort_keys=True,
+        ensure_ascii=False,
+        sort_keys=True,
     )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:12]
 
@@ -638,7 +701,10 @@ def launch_browser(
 ) -> tuple[Browser, BrowserContext, Page]:
     browser = get_browser()
 
-    context_args: dict[str, Any] = {"viewport": {"width": 1440, "height": 1000}, "locale": "zh-CN"}
+    context_args: dict[str, Any] = {
+        "viewport": {"width": 1440, "height": 1000},
+        "locale": "zh-CN",
+    }
     if storage_state:
         if isinstance(storage_state, dict):
             context_args["storage_state"] = storage_state
@@ -667,9 +733,10 @@ def fetch_chat_contacts(
         result["error"] = "未配置登录凭据"
         return result
 
-    browser = None
     try:
-        browser, context, page = launch_browser(cookies=cookies, storage_state=storage_state)
+        _browser, context, page = launch_browser(
+            cookies=cookies, storage_state=storage_state
+        )
 
         goto_ok = False
         for attempt in range(3):
@@ -709,7 +776,9 @@ def fetch_chat_contacts(
         collected: list[dict] = []
         for attempt in range(3):
             try:
-                page.wait_for_selector(".conversationConversationItemtitle", timeout=45000)
+                page.wait_for_selector(
+                    ".conversationConversationItemtitle", timeout=45000
+                )
             except Exception:
                 logger.info("第 %s 次等待联系人列表超时", attempt + 1)
 
@@ -766,9 +835,10 @@ def run_send_task(
     if not cookies and not storage_state:
         return False, "未配置登录凭据"
 
-    browser = None
     try:
-        browser, context, page = launch_browser(cookies=cookies, storage_state=storage_state)
+        _browser, context, page = launch_browser(
+            cookies=cookies, storage_state=storage_state
+        )
 
         goto_ok = False
         for attempt in range(3):
@@ -791,8 +861,12 @@ def run_send_task(
             return False, "检测到安全验证页面"
 
         return open_and_send_message(
-            page, friend_name, message, message_type,
-            image_path=image_path, sticker_name=sticker_name,
+            page,
+            friend_name,
+            message,
+            message_type,
+            image_path=image_path,
+            sticker_name=sticker_name,
             dry_run=dry_run,
         )
     except Exception as e:

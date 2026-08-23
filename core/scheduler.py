@@ -3,8 +3,8 @@ from __future__ import annotations
 import logging
 import random
 import time
+from collections.abc import Callable
 from datetime import datetime, timedelta
-from typing import Callable
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger

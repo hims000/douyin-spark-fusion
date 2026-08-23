@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import secrets
+import threading as _threading
 from pathlib import Path
 from typing import Any
 
@@ -53,8 +54,12 @@ class Settings:
         self.email_user = _env_or("EMAIL_USER", "")
         self.email_pass = _env_or("EMAIL_PASS", "")
         self.email_to = _env_or("EMAIL_TO", "")
-        self.allow_registration = _parse_bool(_env_or("ALLOW_REGISTRATION", "true"), "ALLOW_REGISTRATION")
-        self.rate_limit_cooldown_minutes = int(_env_or("RATE_LIMIT_COOLDOWN_MINUTES", "45"))
+        self.allow_registration = _parse_bool(
+            _env_or("ALLOW_REGISTRATION", "true"), "ALLOW_REGISTRATION"
+        )
+        self.rate_limit_cooldown_minutes = int(
+            _env_or("RATE_LIMIT_COOLDOWN_MINUTES", "45")
+        )
 
 
 settings = Settings()
@@ -88,14 +93,21 @@ def save_config(cfg: dict[str, Any]) -> dict[str, Any]:
     merged = dict(DEFAULT_CONFIG)
     merged.update(cfg)
 
-    for key in ("jitter_minutes", "send_gap_min", "send_gap_max", "max_friends_per_run", "daily_limit", "rate_limit_cooldown_minutes", "retry_delay_minutes"):
+    for key in (
+        "jitter_minutes",
+        "send_gap_min",
+        "send_gap_max",
+        "max_friends_per_run",
+        "daily_limit",
+        "rate_limit_cooldown_minutes",
+        "retry_delay_minutes",
+    ):
         try:
             merged[key] = max(0, int(merged.get(key, DEFAULT_CONFIG[key])))
         except (TypeError, ValueError):
             merged[key] = DEFAULT_CONFIG[key]
 
-    if merged["send_gap_max"] < merged["send_gap_min"]:
-        merged["send_gap_max"] = merged["send_gap_min"]
+    merged["send_gap_max"] = max(merged["send_gap_max"], merged["send_gap_min"])
 
     schedule = str(merged.get("schedule_time", "21:00"))
     try:
@@ -108,10 +120,11 @@ def save_config(cfg: dict[str, Any]) -> dict[str, Any]:
 
     with _config_lock:
         DATA_DIR.mkdir(parents=True, exist_ok=True)
-        CONFIG_PATH.write_text(json.dumps(merged, ensure_ascii=False, indent=2), encoding="utf-8")
+        CONFIG_PATH.write_text(
+            json.dumps(merged, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
 
     return merged
 
 
-import threading as _threading
 _config_lock = _threading.Lock()
