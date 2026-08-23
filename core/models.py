@@ -83,8 +83,10 @@ async def init_db() -> None:
             account_id INTEGER,
             task_id INTEGER,
             user_id INTEGER NOT NULL DEFAULT 0,
+            friend_name TEXT DEFAULT '',
             status TEXT DEFAULT 'pending',
             message TEXT DEFAULT '',
+            reason TEXT DEFAULT '',
             created_at TEXT DEFAULT (datetime('now'))
         );
 
@@ -110,6 +112,15 @@ async def init_db() -> None:
         CREATE INDEX IF NOT EXISTS idx_friends_account_id ON friends(account_id);
         CREATE INDEX IF NOT EXISTS idx_logs_created_at ON logs(created_at);
     """)
+
+    try:
+        await db.execute("ALTER TABLE logs ADD COLUMN friend_name TEXT DEFAULT ''")
+    except Exception:
+        pass
+    try:
+        await db.execute("ALTER TABLE logs ADD COLUMN reason TEXT DEFAULT ''")
+    except Exception:
+        pass
 
     admin_hash = hashlib.sha256(b"spark2024").hexdigest()
     await db.execute(

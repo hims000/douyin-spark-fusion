@@ -41,8 +41,10 @@ from core.models import (
     hash_password,
     init_db,
 )
+from core.notifier import send_notification
 from core.scheduler import (
     has_rate_limit_cooldown,
+    schedule_auto_retry,
     schedule_rate_limit_cooldown,
 )
 
@@ -835,8 +837,8 @@ async def send_message(req: Request, user: dict[str, Any] = Depends(require_user
 
     db = await get_db()
     await db.execute(
-        "INSERT INTO logs(account_id, user_id, status, message) VALUES(?,?,?,?)",
-        (account_id, user["id"], "success" if success else "error", reason),
+        "INSERT INTO logs(account_id, user_id, friend_name, status, message, reason) VALUES(?,?,?,?,?,?)",
+        (account_id, user["id"], friend_name, "success" if success else "error", reason, reason),
     )
     await db.commit()
 
@@ -1079,8 +1081,8 @@ async def run_task_now(task_id: int, user: dict[str, Any] = Depends(require_user
         (datetime.now().isoformat(), task_id),
     )
     await db.execute(
-        "INSERT INTO logs(account_id, task_id, user_id, status, message) VALUES(?,?,?,?,?)",
-        (account_id, task_id, user["id"], "success" if success else "error", reason),
+        "INSERT INTO logs(account_id, task_id, user_id, friend_name, status, message, reason) VALUES(?,?,?,?,?,?,?)",
+        (account_id, task_id, user["id"], task["friend_name"], "success" if success else "error", reason, reason),
     )
     await db.commit()
 
@@ -1098,6 +1100,7 @@ async def run_task_now(task_id: int, user: dict[str, Any] = Depends(require_user
 
     if "限流" in reason or "频繁" in reason:
         schedule_rate_limit_cooldown(settings.rate_limit_cooldown_minutes)
+        schedule_auto_retry(task["friend_name"], task["message"], cookies, storage_state)
 
     if success:
         _send_dingtalk_notification(
@@ -1191,12 +1194,14 @@ async def run_all_tasks(user: dict[str, Any] = Depends(require_user)):
                 (datetime.now().isoformat(), task_dict["id"]),
             )
             await db3.execute(
-                "INSERT INTO logs(account_id, task_id, user_id, status, message) VALUES(?,?,?,?,?)",
+                "INSERT INTO logs(account_id, task_id, user_id, friend_name, status, message, reason) VALUES(?,?,?,?,?,?,?)",
                 (
                     account_id,
                     task_dict["id"],
                     user["id"],
+                    task_dict["friend_name"],
                     "success" if success else "error",
+                    reason,
                     reason,
                 ),
             )
@@ -1300,6 +1305,19 @@ async def update_settings(req: Request, user: dict[str, Any] = Depends(require_a
         await db.close()
 
     return {"success": True}
+
+
+# ── Notify ──────────────────────────────────────────────────
+
+
+@app.post("/api/notify/test", tags=["settings"])
+async def test_notify(req: Request, user: dict = Depends(require_user)):
+    data = await req.json()
+    channel = data.get("channel", "all")
+    title = data.get("title", "Test Notification")
+    content = data.get("content", "This is a test from Douyin Spark Fusion")
+    results = await send_notification(f"[{channel}] {title}", content)
+    return {"success": True, "results": str(results)}
 
 
 # ── Stats ───────────────────────────────────────────────────

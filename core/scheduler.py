@@ -10,6 +10,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 
+from .automation import run_send_task
 from .config import load_config
 
 logger = logging.getLogger("fusion-spark")
@@ -81,6 +82,21 @@ def schedule_retry(run_func: Callable, delay_minutes: int = 45) -> None:
         replace_existing=True,
     )
     logger.info("已安排 %s 分钟后自动补发本次失败的好友", delay_minutes)
+
+
+def schedule_auto_retry(friend_name: str, message: str, cookies: list, storage_state: dict | None = None):
+    """Schedule a retry 45 minutes after rate limiting."""
+    if _scheduler is None:
+        return
+    run_at = datetime.now() + timedelta(minutes=45)
+    job_id = f"retry_{friend_name}_{int(datetime.now().timestamp())}"
+    _scheduler.add_job(
+        lambda: run_send_task(friend_name=friend_name, message=message, cookies=cookies, storage_state=storage_state),
+        'date',
+        run_date=run_at,
+        id=job_id,
+    )
+    logger.info("Scheduled retry for %s at %s", friend_name, run_at)
 
 
 def cancel_retry() -> None:
