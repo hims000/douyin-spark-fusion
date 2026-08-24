@@ -34,6 +34,7 @@ def _get_thread_pool() -> dict[str, Any]:
         _thread_local.browser_pool = {}
     return _thread_local.browser_pool
 
+
 def _get_cached_browser(cookies_hash: str):
     with _browser_cache_lock:
         return _browser_cache.get(cookies_hash)

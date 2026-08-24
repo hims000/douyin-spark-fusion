@@ -14,6 +14,10 @@ from .auth import app_error, require_user
 router = APIRouter(prefix="/api/friends", tags=["friends"])
 _friends_executor = ThreadPoolExecutor(max_workers=1)
 
+# Shared executor for all Playwright operations
+def get_playwright_executor():
+    return _friends_executor
+
 
 @router.get("", summary="List friends")
 async def list_friends(account_id: int = 0, user: dict[str, Any] = Depends(require_user)):

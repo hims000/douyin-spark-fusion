@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import functools
 import json
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Any
 
@@ -19,9 +18,9 @@ from core.scheduler import (
 )
 
 from .auth import app_error, require_user
+from .friends import get_playwright_executor
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
-_executor = ThreadPoolExecutor(max_workers=5)
 
 
 def _validate_cron_expr(expr: str) -> bool:
@@ -188,7 +187,7 @@ async def run_task_now(task_id: int, user: dict[str, Any] = Depends(require_user
 
     loop = asyncio.get_running_loop()
     success, reason = await loop.run_in_executor(
-        _executor,
+        get_playwright_executor(),
         lambda: run_send_task(
             friend_name=task["friend_name"],
             message=task["message"],
@@ -276,7 +275,7 @@ async def run_all_tasks(user: dict[str, Any] = Depends(require_user)):
 
             loop = asyncio.get_running_loop()
             success, reason = await loop.run_in_executor(
-                _executor,
+                get_playwright_executor(),
                 functools.partial(
                     run_send_task,
                     friend_name=task_dict["friend_name"],

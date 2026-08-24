@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Any
 
@@ -19,9 +18,9 @@ from core.models import get_db
 from core.scheduler import has_rate_limit_cooldown, schedule_rate_limit_cooldown
 
 from .auth import app_error, require_user
+from .friends import get_playwright_executor
 
 router = APIRouter(prefix="/api/messages", tags=["messages"])
-_executor = ThreadPoolExecutor(max_workers=5)
 
 
 def _validate_input(value: str, label: str, min_len: int = 1, max_len: int = 500) -> str:
@@ -83,7 +82,7 @@ async def send_message(req: Request, user: dict[str, Any] = Depends(require_user
 
     loop = asyncio.get_running_loop()
     success, reason = await loop.run_in_executor(
-        _executor,
+        get_playwright_executor(),
         lambda: run_send_task(
             friend_name=friend_name,
             message=message,
