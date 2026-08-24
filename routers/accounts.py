@@ -381,11 +381,28 @@ async def save_qr_login(token: str, req: Request, user: dict[str, Any] = Depends
 
     try:
         start = time.time()
+        last_refresh = 0
         while time.time() - start < timeout:
             await page.wait_for_timeout(2000)
 
             if qr_status["status"] == "confirmed":
                 break
+
+            # 检测二维码过期，自动点击刷新
+            if time.time() - last_refresh > 5:
+                try:
+                    expired = await page.get_by_text("过期", exact=False).first.count()
+                    if not expired:
+                        expired = await page.get_by_text("已失效", exact=False).first.count()
+                    if expired:
+                        refresh_btn = await page.get_by_text("刷新", exact=False).first
+                        if await refresh_btn.count():
+                            await refresh_btn.click()
+                            last_refresh = time.time()
+                            await page.wait_for_timeout(3000)
+                            continue
+                except Exception:
+                    pass
 
             cookies = await ctx.cookies()
             for c in cookies:
