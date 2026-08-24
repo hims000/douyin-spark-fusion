@@ -40,6 +40,7 @@ from core.models import (
     get_db,
     hash_password,
     init_db,
+    verify_password,
 )
 from core.notifier import send_notification
 from core.scheduler import (
@@ -59,7 +60,7 @@ security = HTTPBearer(auto_error=False)
 _sessions: dict[str, dict[str, Any]] = {}
 
 _rate_limit_store: dict[str, list[float]] = {}
-_executor = ThreadPoolExecutor(max_workers=2)
+_executor = ThreadPoolExecutor(max_workers=5)
 APP_START_TIME = time.time()
 
 
@@ -450,7 +451,7 @@ async def login(req: LoginRequest):
     if not row:
         raise app_error("AUTH_001", 401, "用户名或密码错误")
     user = dict(row[0])
-    if user["password_hash"] != hash_password(req.password):
+    if not verify_password(req.password, user["password_hash"]):
         raise app_error("AUTH_001", 401, "用户名或密码错误")
     token = secrets.token_hex(32)
     _sessions[token] = {
@@ -933,8 +934,8 @@ async def send_message(req: Request, user: dict[str, Any] = Depends(require_user
     if success:
         msg_hash = message_hash(friend_name, message, message_type)
         await db.execute(
-            "INSERT INTO history(account_id, user_id, friend_name, message_hash, status) VALUES(?,?,?,?,?)",
-            (account_id, user["id"], friend_name, msg_hash, "success"),
+            "INSERT INTO history(account_id, user_id, friend_name, message, message_hash, status) VALUES(?,?,?,?,?,?)",
+            (account_id, user["id"], friend_name, message, msg_hash, "success"),
         )
         await db.commit()
 
@@ -1003,23 +1004,23 @@ async def message_history_endpoint(
     if user["is_admin"]:
         if friend_name:
             rows = await db.execute_fetchall(
-                "SELECT * FROM message_history WHERE friend_name=? ORDER BY created_at DESC LIMIT ?",
+                "SELECT * FROM history WHERE friend_name=? ORDER BY created_at DESC LIMIT ?",
                 (friend_name, limit),
             )
         else:
             rows = await db.execute_fetchall(
-                "SELECT * FROM message_history ORDER BY created_at DESC LIMIT ?",
+                "SELECT * FROM history ORDER BY created_at DESC LIMIT ?",
                 (limit,),
             )
     else:
         if friend_name:
             rows = await db.execute_fetchall(
-                "SELECT mh.* FROM message_history mh JOIN accounts a ON mh.account_id=a.id WHERE mh.friend_name=? AND a.user_id=? ORDER BY mh.created_at DESC LIMIT ?",
+                "SELECT h.* FROM history h JOIN accounts a ON h.account_id=a.id WHERE h.friend_name=? AND a.user_id=? ORDER BY h.created_at DESC LIMIT ?",
                 (friend_name, user["id"], limit),
             )
         else:
             rows = await db.execute_fetchall(
-                "SELECT mh.* FROM message_history mh JOIN accounts a ON mh.account_id=a.id WHERE a.user_id=? ORDER BY mh.created_at DESC LIMIT ?",
+                "SELECT h.* FROM history h JOIN accounts a ON h.account_id=a.id WHERE a.user_id=? ORDER BY h.created_at DESC LIMIT ?",
                 (user["id"], limit),
             )
     await db.close()
@@ -1224,8 +1225,8 @@ async def run_task_now(task_id: int, user: dict[str, Any] = Depends(require_user
             task["friend_name"], task["message"], task.get("message_type", "text")
         )
         await db.execute(
-            "INSERT INTO history(account_id, user_id, friend_name, message_hash, status) VALUES(?,?,?,?,?)",
-            (account_id, user["id"], task["friend_name"], msg_hash, "success"),
+            "INSERT INTO history(account_id, user_id, friend_name, message, message_hash, status) VALUES(?,?,?,?,?,?)",
+            (account_id, user["id"], task["friend_name"], task["message"], msg_hash, "success"),
         )
         await db.commit()
 

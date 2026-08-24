@@ -759,7 +759,33 @@ def get_browser() -> Browser:
 
 
 def release_browser() -> None:
-    pass
+    try:
+        for ctx_key in list(_browser_cache.keys()):
+            pw, br, ctx = _browser_cache.pop(ctx_key)
+            try:
+                ctx.close()
+            except Exception:
+                pass
+    except Exception:
+        pass
+    try:
+        if "browser" in _browser_pool:
+            try:
+                _browser_pool["browser"].close()
+            except Exception:
+                pass
+            del _browser_pool["browser"]
+    except Exception:
+        pass
+    try:
+        if "playwright" in _browser_pool:
+            try:
+                _browser_pool["playwright"].stop()
+            except Exception:
+                pass
+            del _browser_pool["playwright"]
+    except Exception:
+        pass
 
 
 def launch_browser(

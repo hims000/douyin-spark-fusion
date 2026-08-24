@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import secrets
 from typing import Any
 
 import aiosqlite
@@ -100,6 +101,7 @@ async def init_db() -> None:
             account_id INTEGER NOT NULL,
             user_id INTEGER NOT NULL DEFAULT 0,
             friend_name TEXT NOT NULL,
+            message TEXT DEFAULT '',
             message_hash TEXT NOT NULL,
             status TEXT DEFAULT 'success',
             created_at TEXT DEFAULT (datetime('now')),
@@ -112,6 +114,7 @@ async def init_db() -> None:
         CREATE INDEX IF NOT EXISTS idx_friends_account_id ON friends(account_id);
         CREATE INDEX IF NOT EXISTS idx_logs_created_at ON logs(created_at);
         CREATE INDEX IF NOT EXISTS idx_logs_account_created ON logs(account_id, created_at);
+        CREATE INDEX IF NOT EXISTS idx_history_friend_name ON history(friend_name, created_at);
 
         CREATE TABLE IF NOT EXISTS message_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -124,6 +127,14 @@ async def init_db() -> None:
 
         CREATE INDEX IF NOT EXISTS idx_msg_history_account ON message_history(account_id);
         CREATE INDEX IF NOT EXISTS idx_msg_history_created ON message_history(created_at);
+
+        CREATE TABLE IF NOT EXISTS groups (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            created_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_groups_name ON groups(name);
     """)
 
     try:
@@ -134,8 +145,12 @@ async def init_db() -> None:
         await db.execute("ALTER TABLE logs ADD COLUMN reason TEXT DEFAULT ''")
     except Exception:
         pass
+    try:
+        await db.execute("ALTER TABLE history ADD COLUMN message TEXT DEFAULT ''")
+    except Exception:
+        pass
 
-    admin_hash = hashlib.sha256(b"spark2024").hexdigest()
+    admin_hash = hash_password("spark2024")
     await db.execute(
         "INSERT OR IGNORE INTO users(username, password_hash, is_admin) VALUES(?,?,1)",
         ("admin", admin_hash),
@@ -144,8 +159,20 @@ async def init_db() -> None:
     await db.close()
 
 
+PBKDF2_ITERATIONS = 100_000
+
 def hash_password(pw: str) -> str:
-    return hashlib.sha256(pw.encode()).hexdigest()
+    salt = secrets.token_hex(16)
+    dk = hashlib.pbkdf2_hmac("sha256", pw.encode(), salt.encode(), PBKDF2_ITERATIONS)
+    return f"{salt}${dk.hex()}"
+
+
+def verify_password(pw: str, stored: str) -> bool:
+    if "$" not in stored:
+        return secrets.compare_digest(hashlib.sha256(pw.encode()).hexdigest(), stored)
+    salt, expected = stored.split("$", 1)
+    dk = hashlib.pbkdf2_hmac("sha256", pw.encode(), salt.encode(), PBKDF2_ITERATIONS)
+    return secrets.compare_digest(dk.hex(), expected)
 
 
 async def get_setting(key: str, default: str = "") -> str:
