@@ -827,6 +827,18 @@ def launch_browser(
     return browser, context, page
 
 
+def _cookies_to_storage_state(cookies: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "cookies": _normalize_cookies(cookies),
+        "origins": [
+            {
+                "origin": "https://www.douyin.com",
+                "localStorage": [],
+            }
+        ],
+    }
+
+
 def fetch_chat_contacts(
     cookies: list[dict[str, Any]] | None = None,
     storage_state: dict[str, Any] | None = None,
@@ -847,22 +859,20 @@ def fetch_chat_contacts(
                 "--disable-dev-shm-usage", "--disable-gpu",
             ],
         )
-        if storage_state:
-            if isinstance(storage_state, (dict, str)):
-                context = browser.new_context(
-                    storage_state=storage_state,
-                    viewport={"width": 1366, "height": 768},
-                )
-            else:
-                context = browser.new_context(
-                    viewport={"width": 1366, "height": 768},
-                )
+        if storage_state and isinstance(storage_state, (dict, str)):
+            context = browser.new_context(
+                storage_state=storage_state,
+                viewport={"width": 1366, "height": 768},
+            )
+        elif cookies:
+            context = browser.new_context(
+                storage_state=_cookies_to_storage_state(cookies),
+                viewport={"width": 1366, "height": 768},
+            )
         else:
             context = browser.new_context(
                 viewport={"width": 1366, "height": 768},
             )
-            if cookies:
-                context.add_cookies(_normalize_cookies(cookies))
         page = context.new_page()
 
         goto_ok = False
@@ -971,7 +981,26 @@ def extract_logged_in_nickname(
 ) -> str | None:
     context = None
     try:
-        browser, context, page = launch_browser(cookies=cookies, storage_state=storage_state)
+        pw = sync_playwright().start()
+        browser = pw.chromium.launch(
+            headless=settings.headless,
+            args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
+        )
+        if storage_state and isinstance(storage_state, (dict, str)):
+            context = browser.new_context(
+                storage_state=storage_state,
+                viewport={"width": 1366, "height": 768},
+            )
+        elif cookies:
+            context = browser.new_context(
+                storage_state=_cookies_to_storage_state(cookies),
+                viewport={"width": 1366, "height": 768},
+            )
+        else:
+            context = browser.new_context(
+                viewport={"width": 1366, "height": 768},
+            )
+        page = context.new_page()
         page.goto(DOUYIN_CHAT_URL, timeout=30000, wait_until="domcontentloaded")
         page.wait_for_timeout(8000)
         logged, _ = check_login(page)

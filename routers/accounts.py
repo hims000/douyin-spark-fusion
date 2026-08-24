@@ -210,13 +210,37 @@ async def verify_account_login(
         return {"success": False, "error": "未配置登录凭据"}
 
     try:
+        from playwright.sync_api import sync_playwright
+
         from core.automation import (
             DOUYIN_CHAT_URL,
+            _normalize_cookies,
             check_login,
-            launch_browser,
         )
 
-        browser, context, page = launch_browser(cookies=cookies, storage_state=storage_state)
+        pw = sync_playwright().start()
+        browser = pw.chromium.launch(
+            headless=True,
+            args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
+        )
+        if storage_state and isinstance(storage_state, (dict, str)):
+            context = browser.new_context(
+                storage_state=storage_state,
+                viewport={"width": 1366, "height": 768},
+            )
+        elif cookies:
+            context = browser.new_context(
+                storage_state={
+                    "cookies": _normalize_cookies(cookies),
+                    "origins": [{"origin": "https://www.douyin.com", "localStorage": []}],
+                },
+                viewport={"width": 1366, "height": 768},
+            )
+        else:
+            context = browser.new_context(
+                viewport={"width": 1366, "height": 768},
+            )
+        page = context.new_page()
         try:
             page.goto(DOUYIN_CHAT_URL, timeout=30000, wait_until="domcontentloaded")
             page.wait_for_timeout(8000)
@@ -242,5 +266,6 @@ async def verify_account_login(
         finally:
             context.close()
             browser.close()
+            pw.stop()
     except Exception as e:
         return {"success": False, "error": str(e)}
