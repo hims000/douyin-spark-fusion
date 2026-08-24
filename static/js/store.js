@@ -20,4 +20,4 @@ const createTask=async(t)=>{try{await api.post('/tasks',t);showToast('任务创�
 const deleteTask=async(id)=>{try{await api.del('/tasks/'+id);showToast('已删除');loadTasks()}catch(e){showToast('删除失败','error')}};
 const runTask=async(id)=>{try{await api.post('/tasks/run/'+id);showToast('执行完成');loadTasks()}catch(e){showToast('执行失败','error')}};
 const saveSettings=async(s)=>{try{await api.post('/settings',s);showToast('设置已保存')}catch(e){showToast('保存失败','error')}};
-onMounted(()=>{document.documentElement.setAttribute('data-theme',theme.value);try{const u=JSON.parse(localStorage.getItem('user')||'{}');if(u.username){user.value=u;loadStats();loadAccounts()}}catch(e){}});
+const restoreSession=()=>{document.documentElement.setAttribute('data-theme',theme.value);try{const u=JSON.parse(localStorage.getItem('user')||'{}');if(u.username){user.value=u;loadStats();loadAccounts()}}catch(e){}};

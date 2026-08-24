@@ -62,6 +62,7 @@
 <script src="/static/js/store.js"></script>
 <script>
 const app = createApp({setup(){
+onMounted(()=>{restoreSession()});
 return{page,user,theme,version,stats,logList,accountsList,friendList,taskList,historyList,isLoginPage,toast,showToast,toggleTheme,logout,onLogin,loadStats,loadAccounts,loadFriends,loadTasks,loadHistory,uploadCookies,syncFriends,sendMessage,createTask,deleteTask,runTask,saveSettings};
 }});
 
