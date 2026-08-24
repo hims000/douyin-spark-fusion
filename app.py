@@ -98,6 +98,18 @@ async def app_exception_handler(request: Request, exc: HTTPException):
 
 
 @app.middleware("http")
+async def logging_middleware(request: Request, call_next):
+    start = time.time()
+    response = await call_next(request)
+    duration = (time.time() - start) * 1000
+    logger.info(
+        "%s %s -> %d (%.1fms)",
+        request.method, request.url.path, response.status_code, duration
+    )
+    return response
+
+
+@app.middleware("http")
 async def rate_limit_middleware(request: Request, call_next):
     client_ip = request.client.host if request.client else "unknown"
     if _check_rate_limit(client_ip, max_requests=120, window=60):
