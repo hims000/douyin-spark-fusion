@@ -569,23 +569,26 @@ def _confirm_outgoing_message(
 def send_text(page: Page, content: str) -> None:
     editor = page.locator('[contenteditable="true"]').first
     editor.click()
-    page.keyboard.insert_text(content)
-    try:
-        page.wait_for_function(
-            """([txt]) => {
-                const es = [...document.querySelectorAll('[class*=messageEditor] [contenteditable=true], .messageEditorinputArea')];
-                return es.some(e => (e.innerText || '').includes(txt));
-            }""",
-            arg=[content],
-            timeout=5000,
-        )
-    except Exception as exc:
-        raise PageOperationError("文字未能写入聊天输入框") from exc
-
-    before = _mark_latest_outgoing_message(page)
+    page.wait_for_timeout(400)
+    page.keyboard.press("Control+A")
+    page.keyboard.press("Delete")
     page.wait_for_timeout(300)
-    _trigger_send(page)
-    _confirm_outgoing_message(page, before, label="文字", expected_text=content)
+    page.keyboard.type(content, delay=100)
+    page.wait_for_timeout(800)
+    cur = (editor.inner_text() or "") if editor.count() else ""
+    if content not in cur:
+        raise PageOperationError(f"文字未进入输入框，当前内容: {cur[:30]}")
+    page.keyboard.press("Enter")
+    deadline = time.time() + 8
+    while time.time() < deadline:
+        time.sleep(1)
+        try:
+            cur = (editor.inner_text() or "") if editor.count() else ""
+            if content not in cur:
+                return
+        except Exception:
+            pass
+    raise PageOperationError("消息已发送但输入框未清空，可能发送失败")
 
 
 def send_image(page: Page, image_path: str) -> None:
