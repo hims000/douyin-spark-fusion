@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
@@ -12,8 +13,10 @@ from core.models import get_db
 
 from .auth import app_error, require_user
 
+os.environ["PLAYWRIGHT_PYTHON_SYNC_API_ASYNCIO_CHECK"] = "0"
+
 router = APIRouter(prefix="/api/friends", tags=["friends"])
-_executor = ThreadPoolExecutor(max_workers=5)
+_executor = ThreadPoolExecutor(max_workers=1)
 
 
 @router.get("", summary="List friends")

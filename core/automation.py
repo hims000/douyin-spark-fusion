@@ -27,6 +27,12 @@ logger = logging.getLogger("fusion-spark")
 _browser_pool: dict[str, Any] = {}
 _browser_cache: dict[str, tuple] = {}
 _browser_cache_lock = threading.Lock()
+_thread_local = threading.local()
+
+def _get_thread_pool() -> dict[str, Any]:
+    if not hasattr(_thread_local, "browser_pool"):
+        _thread_local.browser_pool = {}
+    return _thread_local.browser_pool
 
 def _get_cached_browser(cookies_hash: str):
     with _browser_cache_lock:
@@ -738,8 +744,9 @@ def message_hash(friend_name: str, message: str, message_type: str) -> str:
 
 
 def get_browser() -> Browser:
-    if "browser" in _browser_pool and _browser_pool["browser"].is_connected():
-        return _browser_pool["browser"]
+    pool = _get_thread_pool()
+    if "browser" in pool and pool["browser"].is_connected():
+        return pool["browser"]
 
     try:
         release_browser()
@@ -765,37 +772,29 @@ def get_browser() -> Browser:
 
     p = sync_playwright().start()
     browser = p.chromium.launch(**launch_args)
-    _browser_pool["playwright"] = p
-    _browser_pool["browser"] = browser
+    pool["playwright"] = p
+    pool["browser"] = browser
     return browser
 
 
 def release_browser() -> None:
+    pool = _get_thread_pool()
     try:
-        for ctx_key in list(_browser_cache.keys()):
-            pw, br, ctx = _browser_cache.pop(ctx_key)
+        if "browser" in pool:
             try:
-                ctx.close()
+                pool["browser"].close()
             except Exception:
                 pass
+            del pool["browser"]
     except Exception:
         pass
     try:
-        if "browser" in _browser_pool:
+        if "playwright" in pool:
             try:
-                _browser_pool["browser"].close()
+                pool["playwright"].stop()
             except Exception:
                 pass
-            del _browser_pool["browser"]
-    except Exception:
-        pass
-    try:
-        if "playwright" in _browser_pool:
-            try:
-                _browser_pool["playwright"].stop()
-            except Exception:
-                pass
-            del _browser_pool["playwright"]
+            del pool["playwright"]
     except Exception:
         pass
 
@@ -840,7 +839,7 @@ def fetch_chat_contacts(
         return result
 
     try:
-        _browser, context, page = launch_browser(
+        browser, context, page = launch_browser(
             cookies=cookies, storage_state=storage_state
         )
 
@@ -1044,6 +1043,7 @@ def run_send_task(
             except Exception:
                 pass
         if not cached and context and browser_:
-            pw = _browser_pool.get("playwright")
+            pool = _get_thread_pool()
+            pw = pool.get("playwright")
             if pw:
                 _set_cached_browser(cookies_hash, pw, browser_, context)

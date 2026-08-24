@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import json
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Any
 
@@ -11,6 +13,7 @@ from core.models import get_db
 from .auth import app_error, require_user
 
 router = APIRouter(prefix="/api/accounts", tags=["accounts"])
+_nickname_executor = ThreadPoolExecutor(max_workers=1)
 
 
 def _validate_input(value: str, label: str, min_len: int = 1, max_len: int = 500) -> str:
@@ -138,14 +141,12 @@ async def upload_cookies(
     await db.commit()
     await db.close()
 
-    import asyncio
-    from concurrent.futures import ThreadPoolExecutor
 
     from core.automation import extract_logged_in_nickname
 
     loop = asyncio.get_running_loop()
     nickname = await loop.run_in_executor(
-        ThreadPoolExecutor(max_workers=1), extract_logged_in_nickname, validated, None
+        _nickname_executor, extract_logged_in_nickname, validated, None
     )
     if nickname:
         db = await get_db()
