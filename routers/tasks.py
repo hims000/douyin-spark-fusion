@@ -9,7 +9,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from core.automation import message_hash, run_send_task
+from core.automation import _cookies_to_storage_state, message_hash, run_send_task
 from core.config import settings
 from core.models import get_db
 from core.scheduler import (
@@ -180,6 +180,9 @@ async def run_task_now(task_id: int, user: dict[str, Any] = Depends(require_user
     if not cookies and not storage_state:
         raise app_error("ACCT_002", 400, "请先配置登录凭据")
 
+    if not storage_state and cookies:
+        storage_state = _cookies_to_storage_state(cookies)
+
     if has_rate_limit_cooldown():
         raise app_error("RATE_001", 429, "当前处于限流冷却期，请稍后再试")
 
@@ -191,7 +194,7 @@ async def run_task_now(task_id: int, user: dict[str, Any] = Depends(require_user
             message=task["message"],
             message_type=task.get("message_type", "text"),
             dry_run=False,
-            cookies=cookies,
+            cookies=None,
             storage_state=storage_state,
         ),
     )
@@ -260,6 +263,9 @@ async def run_all_tasks(user: dict[str, Any] = Depends(require_user)):
             storage_state_raw = account.get("storage_state", "")
             storage_state = json.loads(storage_state_raw) if storage_state_raw else None
 
+            if not storage_state and cookies:
+                storage_state = _cookies_to_storage_state(cookies)
+
             if has_rate_limit_cooldown():
                 results.append({"task_id": task_dict["id"], "success": False, "message": "限流冷却中"})
                 continue
@@ -273,7 +279,7 @@ async def run_all_tasks(user: dict[str, Any] = Depends(require_user)):
                     message=task_dict["message"],
                     message_type=task_dict.get("message_type", "text"),
                     dry_run=False,
-                    cookies=cookies,
+                    cookies=None,
                     storage_state=storage_state,
                 ),
             )

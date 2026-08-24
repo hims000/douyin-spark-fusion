@@ -9,6 +9,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from core.automation import (
+    _cookies_to_storage_state,
     generate_ai_message,
     message_hash,
     render_template,
@@ -74,6 +75,9 @@ async def send_message(req: Request, user: dict[str, Any] = Depends(require_user
     if not cookies and not storage_state:
         raise app_error("ACCT_002", 400, "请先配置登录凭据")
 
+    if not storage_state and cookies:
+        storage_state = _cookies_to_storage_state(cookies)
+
     if has_rate_limit_cooldown():
         raise app_error("RATE_001", 429, "当前处于限流冷却期，请稍后再试")
 
@@ -87,7 +91,7 @@ async def send_message(req: Request, user: dict[str, Any] = Depends(require_user
             image_path=image_path,
             sticker_name=sticker_name,
             dry_run=dry_run,
-            cookies=cookies,
+            cookies=None,
             storage_state=storage_state,
         ),
     )

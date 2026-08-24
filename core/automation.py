@@ -677,32 +677,35 @@ def open_and_send_message(
     sticker_name: str = "",
     dry_run: bool = False,
 ) -> tuple[bool, str]:
-    search = _first_visible(page, SEARCH_INPUTS)
-    search.click()
-    search.fill("")
-    page.wait_for_timeout(500)
-    search.fill(friend_name)
-    page.wait_for_timeout(1500)
+    try:
+        search = page.get_by_placeholder("搜索", exact=False).first
+        search.click()
+        search.fill("")
+        page.wait_for_timeout(500)
+        search.fill(friend_name)
+        page.wait_for_timeout(2000)
+        page.keyboard.press("Enter")
+        page.wait_for_timeout(4000)
 
-    result = _search_result(page, friend_name)
-    if result is None:
-        try:
-            page.keyboard.press("Escape")
-            page.wait_for_timeout(500)
-            search.fill(friend_name)
-            page.wait_for_timeout(1500)
-            result = _search_result(page, friend_name)
-        except Exception:
-            pass
-
-    if result is None:
-        return False, f"搜索不到好友: {friend_name}"
-
-    result.click(force=True)
-    page.wait_for_timeout(2000)
-
-    if not verify_in_conversation(page, friend_name):
-        return False, f"未能切换到 {friend_name} 的会话"
+        btn = page.get_by_text("发消息", exact=False).first
+        if btn.count():
+            btn.click(force=True)
+            page.wait_for_timeout(4000)
+        else:
+            candidate = page.get_by_text(friend_name, exact=True).first
+            if candidate.count() == 0:
+                candidate = page.get_by_text(friend_name, exact=False).first
+            if candidate.count() == 0:
+                page.keyboard.press("Escape")
+                return False, f"搜索不到好友: {friend_name}"
+            candidate.click(force=True)
+            page.wait_for_timeout(3000)
+            btn = page.get_by_text("发消息", exact=False).first
+            if btn.count():
+                btn.click(force=True)
+                page.wait_for_timeout(3000)
+    except Exception as e:
+        return False, f"找不到搜索框: {e}"
 
     if detect_rate_limit(page):
         return False, "检测到限流提示"
