@@ -419,19 +419,25 @@ async def save_qr_login(token: str, req: Request, user: dict[str, Any] = Depends
             return {"success": False, "error": "扫码超时"}
 
         all_cookies = await ctx.cookies()
-        await page.goto("https://www.douyin.com/chat", wait_until="domcontentloaded", timeout=30000)
-        await page.wait_for_timeout(10000)
+        await page.goto("https://www.douyin.com/", wait_until="domcontentloaded", timeout=30000)
+        await page.wait_for_timeout(8000)
 
         nickname = await page.evaluate("""
             () => {
-                const items = document.querySelectorAll('.conversationConversationItemtitle');
-                if (items.length > 0) {
-                    const name = (items[0].textContent || '').trim();
-                    if (name && name.length > 0 && name.length < 30) return name;
-                }
-                return null;
+                try {
+                    const userInfo = localStorage.getItem('user_info');
+                    if (userInfo) {
+                        const d = JSON.parse(userInfo);
+                        if (d.nickname || d.nick_name) return d.nickname || d.nick_name;
+                    }
+                } catch(e) {}
+                const el = document.querySelector('[class*="nickname"], [class*="Nickname"], [class*="user-name"]');
+                return el ? el.textContent.trim() : '';
             }
         """)
+
+        await page.goto("https://www.douyin.com/chat", wait_until="domcontentloaded", timeout=30000)
+        await page.wait_for_timeout(10000)
 
         friends_data = await page.evaluate("""
             () => {
