@@ -355,7 +355,7 @@ async def get_qr_code():
 @router.post("/qr-login/{token}/save", summary="Save QR login cookies to account")
 async def save_qr_login(token: str, req: Request, user: dict[str, Any] = Depends(require_user), timeout: int = 300):
     with _qr_sessions_lock:
-        session = _qr_sessions.pop(token, None)
+        session = _qr_sessions.get(token)
     if not session:
         return {"success": False, "error": "会话已过期"}
 
@@ -414,6 +414,8 @@ async def save_qr_login(token: str, req: Request, user: dict[str, Any] = Depends
         else:
             await browser.close()
             await pw.stop()
+            with _qr_sessions_lock:
+                _qr_sessions.pop(token, None)
             return {"success": False, "error": "扫码超时"}
 
         all_cookies = await ctx.cookies()
@@ -463,6 +465,8 @@ async def save_qr_login(token: str, req: Request, user: dict[str, Any] = Depends
                     await db.close()
                     await browser.close()
                     await pw.stop()
+                    with _qr_sessions_lock:
+                        _qr_sessions.pop(token, None)
                     return {"success": False, "error": "无权操作"}
             await db.execute(
                 "UPDATE accounts SET cookies=?, storage_state=?, name=?, updated_at=? WHERE id=?",
@@ -497,6 +501,10 @@ async def save_qr_login(token: str, req: Request, user: dict[str, Any] = Depends
         await db.close()
         await browser.close()
         await pw.stop()
+        with _qr_sessions_lock:
+            _qr_sessions.pop(token, None)
         return {"success": True, "account_id": account_id, "nickname": nickname, "friend_count": len(friends_data)}
     finally:
         page.remove_listener("response", check_response)
+        with _qr_sessions_lock:
+            _qr_sessions.pop(token, None)
