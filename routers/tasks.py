@@ -237,30 +237,34 @@ async def run_all_tasks(user: dict[str, Any] = Depends(require_user)):
         )
     await db.close()
 
+    # Pre-fetch all accounts
+    account_ids = list({dict(t)["account_id"] for t in rows})
+    db2 = await get_db()
+    if user["is_admin"]:
+        acc_rows = await db2.execute_fetchall(
+            f"SELECT id, cookies, storage_state FROM accounts WHERE id IN ({','.join('?'*len(account_ids))})",
+            account_ids,
+        ) if account_ids else []
+    else:
+        acc_rows = await db2.execute_fetchall(
+            f"SELECT id, cookies, storage_state FROM accounts WHERE id IN ({','.join('?'*len(account_ids))}) AND user_id=?",
+            account_ids + [user["id"]],
+        ) if account_ids else []
+    acc_map = {dict(a)["id"]: dict(a) for a in acc_rows}
+    await db2.close()
+
     results = []
     for task in rows:
         task_dict = dict(task)
         try:
             account_id = task_dict["account_id"]
-            db2 = await get_db()
-            if not user["is_admin"]:
-                acc = await db2.execute_fetchall(
-                    "SELECT id, cookies, storage_state FROM accounts WHERE id=? AND user_id=?",
-                    (account_id, user["id"]),
-                )
-            else:
-                acc = await db2.execute_fetchall(
-                    "SELECT id, cookies, storage_state FROM accounts WHERE id=?", (account_id,)
-                )
-            await db2.close()
-
+            acc = acc_map.get(account_id)
             if not acc:
                 results.append({"task_id": task_dict["id"], "success": False, "message": "账号不存在"})
                 continue
 
-            account = dict(acc[0])
-            cookies = json.loads(account.get("cookies", "[]"))
-            storage_state_raw = account.get("storage_state", "")
+            cookies = json.loads(acc.get("cookies", "[]"))
+            storage_state_raw = acc.get("storage_state", "")
             storage_state = json.loads(storage_state_raw) if storage_state_raw else None
 
             if not storage_state and cookies:

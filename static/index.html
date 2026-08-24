@@ -109,7 +109,7 @@ app.component('dashboard',{props:['data','logs'],emits:['refresh'],template:`
 setup(){const statsList=[{label:'账号',key:'accounts'},{label:'好友',key:'friends'},{label:'活跃任务',key:'tasks'},{label:'今日发送',key:'today_sent'}];
 const status=reactive({cpu_percent:0,memory_percent:0,memory_used_gb:0,memory_total_gb:0,disk_percent:0,disk_free_gb:0,uptime_hours:0,today_sent:0,today_total:0,rate_limited:0,cookie_valid:false});
 const fetchStatus=async()=>{try{const r=await api.get('/status');if(r.data)Object.assign(status,r.data)}catch(e){}};
-onMounted(()=>{fetchStatus();setInterval(fetchStatus,30000)});
+onMounted(()=>{fetchStatus();setInterval(fetchStatus,300000)});
 return{statsList,status}}});
 
 app.component('accounts-page',{props:['accounts'],emits:['refresh','upload'],template:`
@@ -190,7 +190,7 @@ watch(()=>props.friends,(v)=>{if(v)friendOptions.value=v});
 const historyRows=ref([]),filterName=ref(''),sendCounts=ref([]);
 const refreshHistory=async()=>{try{const r=await api.get('/messages/history?friend_name='+encodeURIComponent(filterName.value)+'&limit=200');historyRows.value=r.data||[];buildCounts()}catch(e){}};
 const buildCounts=()=>{const m={};historyRows.value.forEach(r=>{m[r.friend_name]=(m[r.friend_name]||0)+1});sendCounts.value=Object.entries(m).map(([name,count])=>({name,count})).sort((a,b)=>b.count-a.count)};
-const onFilter=()=>refreshHistory();
+let _filterTimer=null;const onFilter=()=>{clearTimeout(_filterTimer);_filterTimer=setTimeout(()=>refreshHistory(),300)};
 onMounted(()=>refreshHistory());
 return{showForm,form,cronPreset,cronHour,cronMin,selectedFriends,friendOptions,presets,toggle,selectAll,deselectAll,submit,onPreset,historyRows,filterName,sendCounts,refreshHistory,onFilter}}});
 

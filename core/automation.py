@@ -40,7 +40,7 @@ def _get_cached_browser(cookies_hash: str):
 
 def _set_cached_browser(cookies_hash: str, playwright, browser, context):
     with _browser_cache_lock:
-        if len(_browser_cache) >= 3:
+        if len(_browser_cache) >= 10:
             oldest = next(iter(_browser_cache))
             pw, br, ctx = _browser_cache.pop(oldest)
             try:
@@ -185,24 +185,16 @@ def _now() -> str:
 
 
 def _already_sent_today(friend_name: str) -> bool:
-    import asyncio as _asyncio
-
-    def _check():
-        from .models import get_db as _get_db
-
-        async def _inner():
-            db = await _get_db()
-            rows = await db.execute_fetchall(
-                "SELECT id FROM history WHERE friend_name=? AND date(created_at)=date('now') AND status='success' LIMIT 1",
-                (friend_name,),
-            )
-            await db.close()
-            return len(rows) > 0
-
-        return _asyncio.run(_inner())
-
     try:
-        return _check()
+        import sqlite3
+
+        conn = sqlite3.connect(os.path.join(DATA_DIR, "fusion.db"))
+        row = conn.execute(
+            "SELECT id FROM history WHERE friend_name=? AND date(created_at)=date('now') AND status='success' LIMIT 1",
+            (friend_name,),
+        ).fetchone()
+        conn.close()
+        return row is not None
     except Exception:
         return False
 

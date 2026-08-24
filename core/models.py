@@ -25,6 +25,7 @@ async def init_db() -> None:
     db = await get_db()
     await db.executescript("""
         PRAGMA journal_mode=WAL;
+        PRAGMA synchronous=NORMAL;
         PRAGMA cache_size=-10000;
         PRAGMA mmap_size=268435456;
 
@@ -113,7 +114,12 @@ async def init_db() -> None:
         CREATE INDEX IF NOT EXISTS idx_tasks_is_active ON tasks(is_active);
         CREATE INDEX IF NOT EXISTS idx_friends_account_id ON friends(account_id);
         CREATE INDEX IF NOT EXISTS idx_logs_created_at ON logs(created_at);
+        CREATE INDEX IF NOT EXISTS idx_logs_user_id ON logs(user_id);
         CREATE INDEX IF NOT EXISTS idx_logs_account_created ON logs(account_id, created_at);
+        CREATE INDEX IF NOT EXISTS idx_friends_user_id ON friends(user_id);
+        CREATE INDEX IF NOT EXISTS idx_tasks_user_id ON tasks(user_id);
+        CREATE INDEX IF NOT EXISTS idx_history_user_id ON history(user_id);
+        CREATE INDEX IF NOT EXISTS idx_history_account_id ON history(account_id);
         CREATE INDEX IF NOT EXISTS idx_history_friend_name ON history(friend_name, created_at);
 
         CREATE TABLE IF NOT EXISTS message_history (

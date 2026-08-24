@@ -1,18 +1,17 @@
 from __future__ import annotations
 
 import json
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request
 
+from core.automation import _cookies_to_storage_state
 from core.models import get_db
 
 from .auth import app_error, require_user
 
 router = APIRouter(prefix="/api/accounts", tags=["accounts"])
-_nickname_executor = ThreadPoolExecutor(max_workers=1)
 
 
 def _validate_input(value: str, label: str, min_len: int = 1, max_len: int = 500) -> str:
@@ -134,8 +133,13 @@ async def upload_cookies(
             continue
         validated.append(cookie)
     await db.execute(
-        "UPDATE accounts SET cookies=?, updated_at=? WHERE id=?",
-        (json.dumps(validated, ensure_ascii=False), datetime.now().isoformat(), account_id),
+        "UPDATE accounts SET cookies=?, storage_state=?, updated_at=? WHERE id=?",
+        (
+            json.dumps(validated, ensure_ascii=False),
+            json.dumps(_cookies_to_storage_state(validated), ensure_ascii=False),
+            datetime.now().isoformat(),
+            account_id,
+        ),
     )
     await db.commit()
     await db.close()
@@ -179,11 +183,19 @@ async def verify_account_login(
     db = await get_db()
     if not user["is_admin"]:
         row = await db.execute_fetchall(
-            "SELECT id FROM accounts WHERE id=? AND user_id=?", (account_id, user["id"])
+            "SELECT id, cookies, storage_state FROM accounts WHERE id=? AND user_id=?",
+            (account_id, user["id"]),
         )
         if not row:
             await db.close()
             raise app_error("AUTH_003", 403, "无权操作")
+    else:
+        row = await db.execute_fetchall(
+            "SELECT id, cookies, storage_state FROM accounts WHERE id=?", (account_id,)
+        )
+        if not row:
+            await db.close()
+            raise app_error("ACCT_001", 404, "账号不存在")
     account = dict(row[0])
     await db.close()
 

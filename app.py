@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import logging
 import sys
 import time
@@ -224,30 +223,9 @@ async def system_status():
     cookie_valid = False
     try:
         row = await db.execute_fetchall(
-            "SELECT id, cookies, storage_state FROM accounts WHERE (cookies IS NOT NULL AND cookies != '[]' AND cookies != '') OR (storage_state IS NOT NULL AND storage_state != '') LIMIT 1"
+            "SELECT id FROM accounts WHERE (cookies IS NOT NULL AND cookies != '[]' AND cookies != '') OR (storage_state IS NOT NULL AND storage_state != '') LIMIT 1"
         )
-        if row:
-            acct = dict(row[0])
-            cookies = json.loads(acct.get("cookies", "[]"))
-            ss = acct.get("storage_state", "")
-            storage_state = json.loads(ss) if ss else None
-            if cookies or storage_state:
-                from core.automation import DOUYIN_CHAT_URL, check_login, launch_browser
-
-                try:
-                    browser, context, page = launch_browser(cookies=cookies, storage_state=storage_state)
-                    try:
-                        page.goto(DOUYIN_CHAT_URL, timeout=15000, wait_until="domcontentloaded")
-                        page.wait_for_timeout(5000)
-                        logged, _ = check_login(page)
-                        cookie_valid = logged
-                    finally:
-                        context.close()
-                        browser.close()
-                except Exception:
-                    cookie_valid = False
-            else:
-                cookie_valid = True
+        cookie_valid = len(row) > 0
     except Exception:
         cookie_valid = False
 

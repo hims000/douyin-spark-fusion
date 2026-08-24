@@ -66,19 +66,19 @@ async def send_message(req: Request, user: dict[str, Any] = Depends(require_user
         raise app_error("ACCT_001", 404, "账号不存在")
 
     account = dict(row[0])
-    await db.close()
-
     cookies = json.loads(account.get("cookies", "[]"))
     storage_state_raw = account.get("storage_state", "")
     storage_state = json.loads(storage_state_raw) if storage_state_raw else None
 
     if not cookies and not storage_state:
+        await db.close()
         raise app_error("ACCT_002", 400, "请先配置登录凭据")
 
     if not storage_state and cookies:
         storage_state = _cookies_to_storage_state(cookies)
 
     if has_rate_limit_cooldown():
+        await db.close()
         raise app_error("RATE_001", 429, "当前处于限流冷却期，请稍后再试")
 
     loop = asyncio.get_running_loop()
@@ -96,7 +96,6 @@ async def send_message(req: Request, user: dict[str, Any] = Depends(require_user
         ),
     )
 
-    db = await get_db()
     await db.execute(
         "INSERT INTO logs(account_id, user_id, friend_name, status, message, reason) VALUES(?,?,?,?,?,?)",
         (account_id, user["id"], friend_name, "success" if success else "error", reason, reason),

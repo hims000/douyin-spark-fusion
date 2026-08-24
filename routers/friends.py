@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request
@@ -11,6 +12,7 @@ from core.models import get_db
 from .auth import app_error, require_user
 
 router = APIRouter(prefix="/api/friends", tags=["friends"])
+_friends_executor = ThreadPoolExecutor(max_workers=1)
 
 
 @router.get("", summary="List friends")
@@ -73,14 +75,12 @@ async def sync_friends(req: Request, user: dict[str, Any] = Depends(require_user
         storage_state = _cookies_to_storage_state(cookies)
 
     import asyncio
-    from concurrent.futures import ThreadPoolExecutor
 
-    _executor = ThreadPoolExecutor(max_workers=1)
     loop = asyncio.get_running_loop()
     try:
         result = await asyncio.wait_for(
             loop.run_in_executor(
-                _executor, fetch_chat_contacts, None, storage_state
+                _friends_executor, fetch_chat_contacts, None, storage_state
             ),
             timeout=120,
         )
