@@ -7,7 +7,8 @@ const showToast=(msg,type='success')=>{toast.show=true;toast.msg=msg;toast.type=
 const toggleTheme=()=>{theme.value=theme.value==='light'?'dark':'light';localStorage.setItem('theme',theme.value);document.documentElement.setAttribute('data-theme',theme.value)};
 const logout=()=>{localStorage.removeItem('token');localStorage.removeItem('user');user.value={};page.value='dashboard'};
 const onLogin=(u)=>{user.value=u;page.value='dashboard';loadStats();loadAccounts()};
-const loadStats=async()=>{try{const r=await api.get('/stats');Object.assign(stats,r.data);const l=await api.get('/logs?limit=20');logList.value=l.data||[]}catch(e){}};
+const version=ref('...');
+const loadStats=async()=>{try{const r=await api.get('/stats');Object.assign(stats,r.data);const l=await api.get('/logs?limit=20');logList.value=l.data||[];const h=await api.get('/health');if(h.data?.version)version.value=h.data.version}catch(e){}};
 const loadAccounts=async()=>{try{const r=await api.get('/accounts');accountsList.value=r.data||[]}catch(e){}};
 const loadFriends=async(accId)=>{try{const r=await api.get('/friends?account_id='+accId);friendList.value=r.data||[]}catch(e){}};
 const loadTasks=async()=>{try{const r=await api.get('/tasks');taskList.value=r.data||[]}catch(e){}};

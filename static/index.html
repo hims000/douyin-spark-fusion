@@ -29,21 +29,9 @@
 <a class="nav-item" :class="{active:page==='tasks'}" @click="page='tasks'">
 <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
 <span class="nav-label">任务</span></a>
-<a class="nav-item" :class="{active:page==='history'}" @click="page='history'">
-<span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/><path d="M12 6v6l4 2"/></svg></span>
-<span class="nav-label">历史</span></a>
-<a class="nav-item" :class="{active:page==='status'}" @click="page='status'">
-<span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
-<span class="nav-label">状态</span></a>
 <a class="nav-item" :class="{active:page==='settings'}" @click="page='settings'">
 <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72 1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg></span>
 <span class="nav-label">设置</span></a>
-<a class="nav-item" v-if="user.is_admin" :class="{active:page==='admin-accounts'}" @click="page='admin-accounts'">
-<span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/><path d="M17 8h2m-2 4h2"/></svg></span>
-<span class="nav-label">账号管理</span></a>
-<a class="nav-item" v-if="user.is_admin" :class="{active:page==='admin-groups'}" @click="page='admin-groups'">
-<span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></span>
-<span class="nav-label">用户组</span></a>
 <a class="nav-item" v-if="user.is_admin" href="https://mail.hims.ccwu.cc" target="_blank" rel="noopener">
 <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span>
 <span class="nav-label">邮箱</span></a>
@@ -63,12 +51,7 @@
 <accounts-page v-if="page==='accounts'" :accounts="accountsList" @refresh="loadAccounts" @upload="uploadCookies"></accounts-page>
 <friends-page v-if="page==='friends'" :accounts="accountsList" :friends="friendList" @sync="syncFriends" @send="sendMessage"></friends-page>
 <tasks-page v-if="page==='tasks'" :accounts="accountsList" :tasks="taskList" :friends="friendList" @refresh="loadTasks" @create="createTask" @delete="deleteTask" @run="runTask"></tasks-page>
-<history-page v-if="page==='history'" @refresh="loadHistory"></history-page>
-<status-page v-if="page==='status'"></status-page>
-<admin-settings v-if="page==='settings'&&user.is_admin" @save="saveSettings"></admin-settings>
-<settings-page v-else-if="page==='settings'" @save="saveSettings"></settings-page>
-<admin-accounts v-if="page==='admin-accounts'" @refresh="loadAccounts"></admin-accounts>
-<admin-groups v-if="page==='admin-groups'"></admin-groups>
+<settings-page v-if="page==='settings'" @save="saveSettings"></settings-page>
 </main>
 </div>
 <login-page v-else @login="onLogin"></login-page>
@@ -79,7 +62,7 @@
 <script src="/static/js/store.js"></script>
 <script>
 const app = createApp({setup(){
-return{page,user,theme,stats,logList,accountsList,friendList,taskList,historyList,isLoginPage,toast,showToast,toggleTheme,logout,onLogin,loadStats,loadAccounts,loadFriends,loadTasks,loadHistory,uploadCookies,syncFriends,sendMessage,createTask,deleteTask,runTask,saveSettings};
+return{page,user,theme,version,stats,logList,accountsList,friendList,taskList,historyList,isLoginPage,toast,showToast,toggleTheme,logout,onLogin,loadStats,loadAccounts,loadFriends,loadTasks,loadHistory,uploadCookies,syncFriends,sendMessage,createTask,deleteTask,runTask,saveSettings};
 }});
 
 app.component('login-page',{template:`
@@ -101,10 +84,27 @@ app.component('dashboard',{props:['data','logs'],emits:['refresh'],template:`
 <div class="stats-grid">
 <div class="stat-card" v-for="(s,i) in statsList" :key="s.key" :style="{animationDelay:i*0.08+'s'}"><div class="stat-value">{{data[s.key]}}</div><div class="stat-label">{{s.label}}</div></div>
 </div>
+<div class="card mt-6"><h3 class="card-title">系统资源</h3>
+<div class="mt-3" style="display:flex;flex-direction:column;gap:8px">
+<div style="display:flex;justify-content:space-between;font-size:13px"><span>CPU</span><span :class="status.cpu_percent>80?'text-red':''">{{status.cpu_percent}}%</span></div>
+<div style="width:100%;height:6px;background:var(--bg-hover);border-radius:3px"><div :style="{width:status.cpu_percent+'%',height:'100%',background:status.cpu_percent>80?'var(--red)':'var(--green)',borderRadius:'3px',transition:'width .3s'}"></div></div>
+<div style="display:flex;justify-content:space-between;font-size:13px"><span>内存</span><span :class="status.memory_percent>80?'text-red':''">{{status.memory_percent}}% ({{status.memory_used_gb}}/{{status.memory_total_gb}} GB)</span></div>
+<div style="width:100%;height:6px;background:var(--bg-hover);border-radius:3px"><div :style="{width:status.memory_percent+'%',height:'100%',background:status.memory_percent>80?'var(--red)':'var(--green)',borderRadius:'3px',transition:'width .3s'}"></div></div>
+<div style="display:flex;justify-content:space-between;font-size:13px"><span>磁盘</span><span :class="status.disk_percent>80?'text-red':''">{{status.disk_percent}}% ({{status.disk_free_gb}} GB 可用)</span></div>
+<div style="width:100%;height:6px;background:var(--bg-hover);border-radius:3px"><div :style="{width:status.disk_percent+'%',height:'100%',background:status.disk_percent>80?'var(--red)':'var(--green)',borderRadius:'3px',transition:'width .3s'}"></div></div>
+</div></div>
+<div class="card mt-4"><h3 class="card-title">发送统计</h3>
+<div class="mt-3" style="display:flex;gap:24px;font-size:13px"><div><span class="text-muted">今日发送: </span><span>{{status.today_sent}}</span></div><div><span class="text-muted">成功率: </span><span>{{status.today_total>0?Math.round(status.today_sent/status.today_total*100):0}}%</span></div><div><span class="text-muted">限流次数: </span><span :class="status.rate_limited>0?'text-red':''">{{status.rate_limited}}</span></div></div></div>
+<div class="card mt-4"><h3 class="card-title">会话状态</h3>
+<div class="mt-3" style="display:flex;gap:24px;font-size:13px"><div><span class="text-muted">Cookie: </span><span class="badge" :class="status.cookie_valid?'badge-green':'badge-red'">{{status.cookie_valid?'有效':'无效'}}</span></div><div><span class="text-muted">运行时间: </span><span>{{status.uptime_hours}} 小时</span></div></div></div>
 <div class="card mt-6"><h3 class="card-title">最近日志</h3>
 <table class="table mt-3" v-if="logs.length"><thead><tr><th>时间</th><th>状态</th><th>消息</th></tr></thead><tbody><tr v-for="l in logs" :key="l.id"><td class="text-muted">{{(l.created_at||'').replace('T',' ').substring(0,19)}}</td><td><span class="badge" :class="l.status==='success'?'badge-green':'badge-red'">{{l.status==='success'?'成功':'失败'}}</span></td><td class="text-muted">{{l.message}}</td></tr></tbody></table>
 <p v-else class="text-muted mt-3">暂无日志</p></div></div>`,
-setup(){const statsList=[{label:'账号',key:'accounts'},{label:'好友',key:'friends'},{label:'活跃任务',key:'tasks'},{label:'今日发送',key:'today_sent'}];return{statsList}}})
+setup(){const statsList=[{label:'账号',key:'accounts'},{label:'好友',key:'friends'},{label:'活跃任务',key:'tasks'},{label:'今日发送',key:'today_sent'}];
+const status=reactive({cpu_percent:0,memory_percent:0,memory_used_gb:0,memory_total_gb:0,disk_percent:0,disk_free_gb:0,uptime_hours:0,today_sent:0,today_total:0,rate_limited:0,cookie_valid:false});
+const fetchStatus=async()=>{try{const r=await api.get('/status');if(r.data)Object.assign(status,r.data)}catch(e){}};
+onMounted(()=>{fetchStatus();setInterval(fetchStatus,30000)});
+return{statsList,status}}});
 
 app.component('accounts-page',{props:['accounts'],emits:['refresh','upload'],template:`
 <div><div class="page-header"><h2 class="page-title">账号管理</h2><button class="btn-primary" @click="addAccount">+ 添加账号</button></div>
@@ -113,13 +113,36 @@ app.component('accounts-page',{props:['accounts'],emits:['refresh','upload'],tem
 <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn-secondary btn-sm" @click="importCookie(a.id)">导入Cookie</button><button class="btn-danger btn-sm" @click="delAccount(a.id)">删除</button></div></div>
 <div v-if="showCookie===a.id" style="margin-top:12px"><textarea v-model="cookieJson" placeholder="粘贴 Cookie JSON 数组" rows="4" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px;font-family:monospace;font-size:12px;resize:vertical"></textarea>
 <div style="margin-top:8px;display:flex;gap:8px"><button class="btn-primary btn-sm" @click="saveCookie(a.id)">保存</button><button class="btn-secondary btn-sm" @click="showCookie=null">取消</button></div></div></div></div>
-<p v-else class="text-muted mt-4">点击"添加账号"开始</p></div>`,
+<p v-else class="text-muted mt-4">点击"添加账号"开始</p>
+<div v-if="isAdmin" class="mt-6"><div style="border-top:1px solid var(--border);margin-bottom:16px;padding-top:16px"><h3 class="card-title">批量账号管理</h3></div>
+<div class="card" style="padding:12px 16px">
+<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+<label class="friend-item" :class="{checked:allChecked}" style="font-size:12px;padding:4px 8px"><input type="checkbox" :checked="allChecked" @change="toggleAll" style="width:auto;margin:0"/> 全选</label>
+<button class="btn-danger btn-sm" @click="batchDelete" :disabled="checkedIds.length===0">删除选中 ({{checkedIds.length}})</button>
+<button class="btn-secondary btn-sm" @click="batchToggle(true)" :disabled="checkedIds.length===0">启用选中</button>
+<button class="btn-secondary btn-sm" @click="batchToggle(false)" :disabled="checkedIds.length===0">禁用选中</button>
+<input v-model="search" placeholder="搜索账号/用户" style="width:200px;margin-left:auto"/>
+</div></div>
+<div v-if="adminRows.length" class="card mt-4" style="padding:0"><table class="table"><thead><tr><th style="width:40px"></th><th>ID</th><th>所属用户</th><th>账号名</th><th>手机号</th><th>登录状态</th><th>活跃状态</th><th>操作</th></tr></thead><tbody><tr v-for="a in filtered" :key="a.id"><td><input type="checkbox" :checked="checkedIds.includes(a.id)" @change="toggleCheck(a.id)" style="width:auto;margin:0"/></td><td class="text-muted">{{a.id}}</td><td>{{a.owner_username||'—'}}</td><td>{{a.name}}</td><td class="text-muted">{{a.phone||'—'}}</td><td><span class="badge" :class="a.cookies&&a.cookies!=='[]'?'badge-green':'badge-amber'">{{a.cookies&&a.cookies!=='[]'?'已登录':'未登录'}}</span></td><td><span class="badge" :class="a.is_active!==0?'badge-green':'badge-red'">{{a.is_active!==0?'活跃':'已禁用'}}</span></td><td><div style="display:flex;gap:4px"><button class="btn-danger btn-sm" @click="delOne(a.id)">删除</button><button class="btn-secondary btn-sm" @click="toggleOne(a.id,a.is_active!==0)">{{a.is_active!==0?'禁用':'启用'}}</button></div></td></tr></tbody></table></div>
+<p v-else class="text-muted mt-4">暂无账号</p></div></div>`,
 setup(props,{emit}){const showCookie=ref(null),cookieJson=ref('');
+const isAdmin=ref(false);
+const adminRows=ref([]),checkedIds=ref([]),search=ref('');
+const allChecked=computed(()=>{const f=filtered.value;return f.length>0&&f.every(a=>checkedIds.value.includes(a.id))});
+const filtered=computed(()=>{if(!search.value)return adminRows.value;const s=search.value.toLowerCase();return adminRows.value.filter(a=>(a.name||'').toLowerCase().includes(s)||(a.owner_username||'').toLowerCase().includes(s)||(a.phone||'').includes(s))});
 const addAccount=async()=>{try{await api.post('/accounts',{name:'账号 '+(props.accounts.length+1),phone:''});emit('refresh')}catch(e){}};
 const delAccount=async(id)=>{if(!confirm('确认删除？'))return;await api.del('/accounts/'+id);emit('refresh')};
 const importCookie=(id)=>{showCookie.value=id;cookieJson.value=''};
 const saveCookie=async(id)=>{try{const c=JSON.parse(cookieJson.value);emit('upload',id,c);showCookie.value=null;cookieJson.value=''}catch(e){alert('JSON格式错误')}};
-return{showCookie,cookieJson,addAccount,delAccount,importCookie,saveCookie}}})
+const loadAdminAccounts=async()=>{try{const r=await api.get('/admin/accounts');adminRows.value=r.data||[]}catch(e){}};
+const toggleCheck=id=>{if(checkedIds.value.includes(id))checkedIds.value=checkedIds.value.filter(i=>i!==id);else checkedIds.value=[...checkedIds.value,id]};
+const toggleAll=()=>{if(allChecked.value)checkedIds.value=[];else checkedIds.value=filtered.value.map(a=>a.id)};
+const batchDelete=async()=>{if(!confirm('确认删除'+checkedIds.value.length+'个账号？'))return;try{await api.post('/admin/accounts/batch-delete',{account_ids:checkedIds.value});checkedIds.value=[];emit('refresh');loadAdminAccounts();}catch(e){}};
+const batchToggle=async(active)=>{try{await api.post('/admin/accounts/batch-toggle',{account_ids:checkedIds.value,is_active:active});checkedIds.value=[];emit('refresh');loadAdminAccounts();}catch(e){}};
+const delOne=async(id)=>{if(!confirm('确认删除？'))return;try{await api.post('/admin/accounts/batch-delete',{account_ids:[id]});emit('refresh');loadAdminAccounts();}catch(e){}};
+const toggleOne=async(id,cur)=>{try{await api.post('/admin/accounts/batch-toggle',{account_ids:[id],is_active:!cur});emit('refresh');loadAdminAccounts();}catch(e){}};
+onMounted(()=>{const app=document.getElementById('app').__vue_app__;const ctx=app._instance?.setupState||app._instance?.proxy;if(ctx&&ctx.user&&ctx.user.is_admin){isAdmin.value=true;loadAdminAccounts()}});
+return{showCookie,cookieJson,addAccount,delAccount,importCookie,saveCookie,isAdmin,adminRows,checkedIds,search,allChecked,filtered,toggleCheck,toggleAll,batchDelete,batchToggle,delOne,toggleOne}}});
 
 app.component('friends-page',{props:['accounts','friends'],emits:['sync','send'],template:`
 <div><div class="page-header"><h2 class="page-title">好友列表</h2><div class="header-actions"><select v-model="selectedAccount" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 12px;outline:none"><option :value="0">选择账号</option><option v-for="a in accounts" :key="a.id" :value="a.id">{{a.name}}</option></select><button class="btn-secondary" @click="$emit('sync',selectedAccount)" :disabled="!selectedAccount||syncing">{{syncing?'同步中...':'同步好友'}}</button></div></div>
@@ -128,7 +151,7 @@ app.component('friends-page',{props:['accounts','friends'],emits:['sync','send']
 <div v-else class="mt-4"><div class="friend-grid"><div class="friend-card stagger-item" v-for="(f,i) in friends" :key="f.id" :style="{animationDelay:i*0.04+'s'}"><div class="friend-row"><div class="friend-name">{{f.name}}</div><div class="friend-meta"><span class="badge badge-amber" v-if="f.spark_days">{{f.spark_days}}天</span><button class="btn-primary btn-sm" @click="doSend(f.name)" :disabled="sending===f.name">{{sending===f.name?'发送中':'发送'}}</button></div></div><p v-if="results[f.name]" class="result" :class="results[f.name]?'text-green':'text-red'">{{results[f.name]}}</p></div></div></div></div>`,
 setup(props,{emit}){const selectedAccount=ref(0),sending=ref(''),syncing=ref(false),results=reactive({});
 const doSend=async(name)=>{sending.value=name;try{await emit('send',selectedAccount.value,name);results[name]='已发送'}catch(e){results[name]='失败'}finally{sending.value=''}};
-return{selectedAccount,sending,syncing,results,doSend}}})
+return{selectedAccount,sending,syncing,results,doSend}}});
 
 app.component('tasks-page',{props:['accounts','tasks','friends'],emits:['refresh','create','delete','run'],template:`
 <div><div class="page-header"><h2 class="page-title">定时任务</h2><button class="btn-primary" @click="showForm=true">+ 新建任务</button></div>
@@ -143,7 +166,11 @@ app.component('tasks-page',{props:['accounts','tasks','friends'],emits:['refresh
 <div class="friend-grid"><label v-for="f in friendOptions" :key="f.name" class="friend-item" :class="{checked:selectedFriends.has(f.name)}"><input type="checkbox" :checked="selectedFriends.has(f.name)" @change="toggle(f.name)"/><span>{{f.name}}</span><span class="badge badge-amber" v-if="f.spark_days">{{f.spark_days}}天</span></label></div></div>
 <div class="mt-3"><button class="btn-primary" @click="submit" :disabled="!form.account_id||selectedFriends.size===0">创建 ({{selectedFriends.size}}个)</button><button class="btn-secondary" @click="showForm=false">取消</button></div></div>
 <table v-if="tasks.length" class="table mt-4"><thead><tr><th>账号</th><th>好友</th><th>Cron</th><th>状态</th><th>操作</th></tr></thead><tbody><tr v-for="t in tasks" :key="t.id"><td class="text-muted">{{t.account_name||'账号'+t.account_id}}</td><td>{{t.friend_name}}</td><td class="text-muted">{{t.cron_expr}}</td><td><span class="badge" :class="t.is_active?'badge-green':'badge-amber'">{{t.is_active?'活跃':'暂停'}}</span></td><td><div style="display:flex;gap:4px"><button class="btn-primary btn-sm" @click="$emit('run',t.id)">执行</button><button class="btn-danger btn-sm" @click="$emit('delete',t.id)">删除</button></div></td></tr></tbody></table>
-<p v-else class="text-muted mt-4">暂无任务</p></div>`,
+<p v-else class="text-muted mt-4">暂无任务</p>
+<div class="card mt-6"><div class="page-header" style="margin-bottom:12px"><h3 class="card-title">消息历史</h3><div class="header-actions"><input v-model="filterName" placeholder="筛选好友名称" style="width:200px" @input="onFilter"/><button class="btn-secondary" @click="refreshHistory">刷新</button></div></div>
+<div v-if="historyRows.length" style="padding:0"><table class="table"><thead><tr><th>时间</th><th>好友</th><th>消息</th><th>状态</th></tr></thead><tbody><tr v-for="r in historyRows" :key="r.id"><td class="text-muted">{{(r.created_at||'').replace('T',' ').substring(0,19)}}</td><td>{{r.friend_name}}</td><td class="text-muted">{{r.message}}</td><td><span class="badge" :class="r.status==='success'?'badge-green':'badge-red'">{{r.status==='success'?'成功':'失败'}}</span></td></tr></tbody></table></div>
+<p v-else class="text-muted mt-4">暂无消息记录</p></div>
+<div v-if="sendCounts.length" class="card mt-4"><h3 class="card-title mb-4">发送统计</h3><div class="friend-grid"><div class="friend-card" v-for="sc in sendCounts" :key="sc.name"><div class="friend-row"><div class="friend-name">{{sc.name}}</div><span class="badge badge-green">{{sc.count}}条</span></div></div></div></div></div>`,
 setup(props,{emit}){const showForm=ref(false),form=reactive({account_id:0,message:'',cron_expr:'0 9 * * *'}),cronPreset=ref('0 9 * * *'),cronHour=ref(9),cronMin=ref(0),selectedFriends=ref(new Set()),friendOptions=ref([]);
 const presets=[{value:'0 8 * * *',label:'08:00'},{value:'0 9 * * *',label:'09:00'},{value:'0 10 * * *',label:'10:00'},{value:'0 12 * * *',label:'12:00'},{value:'0 18 * * *',label:'18:00'},{value:'0 20 * * *',label:'20:00'},{value:'0 21 * * *',label:'21:00'}];
 const onPreset=()=>{if(cronPreset.value){form.cron_expr=cronPreset.value}else{form.cron_expr='0 '+cronMin.value+' '+cronHour.value+' * * *'}};
@@ -152,7 +179,12 @@ const selectAll=()=>{selectedFriends.value=new Set(friendOptions.value.map(f=>f.
 const deselectAll=()=>{selectedFriends.value=new Set()};
 const submit=()=>{selectedFriends.value.forEach(name=>{emit('create',{account_id:form.account_id,friend_name:name,cron_expr:form.cron_expr,message:form.message})});showForm.value=false;selectedFriends.value=new Set()};
 watch(()=>props.friends,(v)=>{if(v)friendOptions.value=v});
-return{showForm,form,cronPreset,cronHour,cronMin,selectedFriends,friendOptions,presets,toggle,selectAll,deselectAll,submit,onPreset}}})
+const historyRows=ref([]),filterName=ref(''),sendCounts=ref([]);
+const refreshHistory=async()=>{try{const r=await api.get('/messages/history?friend_name='+encodeURIComponent(filterName.value)+'&limit=200');historyRows.value=r.data||[];buildCounts()}catch(e){}};
+const buildCounts=()=>{const m={};historyRows.value.forEach(r=>{m[r.friend_name]=(m[r.friend_name]||0)+1});sendCounts.value=Object.entries(m).map(([name,count])=>({name,count})).sort((a,b)=>b.count-a.count)};
+const onFilter=()=>refreshHistory();
+onMounted(()=>refreshHistory());
+return{showForm,form,cronPreset,cronHour,cronMin,selectedFriends,friendOptions,presets,toggle,selectAll,deselectAll,submit,onPreset,historyRows,filterName,sendCounts,refreshHistory,onFilter}}});
 
 app.component('settings-page',{emits:['save'],template:`
 <div><h2 class="page-title">通知设置</h2>
@@ -173,39 +205,8 @@ app.component('settings-page',{emits:['save'],template:`
 <button class="btn-secondary btn-sm" @click="testChannel(ch)" :disabled="testing===ch.key" style="flex-shrink:0">{{testing===ch.key?'测试中...':'测试'}}</button>
 </div>
 </div>
-<button class="btn-primary mt-3" @click="save">保存设置</button></div>
-<div class="card mt-4"><h3 class="card-title">关于</h3><p class="text-muted mt-2">Douyin Spark Fusion v1.0.0</p><p class="text-muted">融合 23 个抖音火花项目的最佳实践</p></div></div>`,
-setup(props,{emit}){const settings=reactive({DINGTALK_WEBHOOK:'',FEISHU_WEBHOOK:'',WECOM_WEBHOOK:'',TELEGRAM_BOT_TOKEN:'',TELEGRAM_CHAT_ID:'',BARK_DEVICE_KEY:'',RESEND_API_KEY:'',RESEND_FROM:'',MAIL_TO:''});
-const chEn=reactive({dingtalk:true,feishu:true,wecom:true,telegram:true,bark:true,email:true});
-const testing=ref('');
-const channels=[{key:'dingtalk',label:'钉钉',fields:[{key:'DINGTALK_WEBHOOK',placeholder:'Webhook URL'}]},{key:'feishu',label:'飞书',fields:[{key:'FEISHU_WEBHOOK',placeholder:'Webhook URL'}]},{key:'wecom',label:'企业微信',fields:[{key:'WECOM_WEBHOOK',placeholder:'Webhook URL'}]},{key:'telegram',label:'Telegram',fields:[{key:'TELEGRAM_BOT_TOKEN',placeholder:'Bot Token'},{key:'TELEGRAM_CHAT_ID',placeholder:'Chat ID'}]},{key:'bark',label:'Bark',fields:[{key:'BARK_DEVICE_KEY',placeholder:'Device Key'}]},{key:'email',label:'邮件 (Resend)',fields:[{key:'RESEND_API_KEY',placeholder:'Resend API Key'},{key:'RESEND_FROM',placeholder:'发件人 (admin@hims.ccwu.cc)'},{key:'MAIL_TO',placeholder:'收件邮箱'}]}];
-const testChannel=async(ch)=>{testing.value=ch.key;try{const r=await api.post('/notify/test',{channel:ch.key});const app=document.getElementById('app').__vue_app__;const ctx=app._instance?.setupState||app._instance?.proxy;if(r.data?.success){if(ctx&&ctx.showToast)ctx.showToast(ch.label+' 测试通知已发送')}}catch(e){}finally{testing.value=''}};
-const save=()=>emit('save',settings);
-const load=async()=>{try{const r=await api.get('/settings');if(r.data?.notifications){Object.keys(settings).forEach(k=>{if(r.data.notifications[k]!==undefined)settings[k]=r.data.notifications[k]})}}catch(e){}};
-onMounted(()=>load());
-return{settings,chEn,channels,testing,testChannel,save}}});
-
-app.component('admin-settings',{emits:['save'],template:`
-<div><h2 class="page-title">系统设置</h2>
-<div class="card mt-4"><h3 class="card-title">通知渠道</h3>
-<div class="mt-3" style="display:flex;flex-direction:column;gap:12px">
-<div v-for="ch in channels" :key="ch.key" style="display:flex;align-items:center;gap:12px;padding:10px;border:1px solid var(--border);border-radius:8px">
-<div style="display:flex;align-items:center;gap:8px;width:160px;flex-shrink:0">
-<label style="position:relative;display:inline-block;width:36px;height:20px;cursor:pointer">
-<input type="checkbox" v-model="chEn[ch.key]" :disabled="!settings[ch.key]" style="opacity:0;width:0;height:0;position:absolute"/>
-<span :style="{position:'absolute',top:0,left:0,right:0,bottom:0,background:chEn[ch.key]?'var(--green)':'var(--border)',borderRadius:'20px',transition:'.3s'}">
-<span :style="{position:'absolute',height:'14px',width:'14px',left:chEn[ch.key]?'19px':'3px',bottom:'3px',background:'#fff',borderRadius:'50%',transition:'.3s'}"></span></span>
-</label>
-<span style="font-weight:500;font-size:13px">{{ch.label}}</span>
-</div>
-<div v-for="f in ch.fields" :key="f.key" style="flex:1;min-width:0">
-<input v-model="settings[f.key]" :placeholder="f.placeholder" style="width:100%;font-size:12px"/>
-</div>
-<button class="btn-secondary btn-sm" @click="testChannel(ch)" :disabled="testing===ch.key" style="flex-shrink:0">{{testing===ch.key?'测试中...':'测试'}}</button>
-</div>
-</div>
 <button class="btn-primary mt-3" @click="saveNotifications">保存通知设置</button></div>
-<div class="card mt-4"><h3 class="card-title">系统参数</h3>
+<div v-if="isAdmin" class="card mt-4"><h3 class="card-title">系统参数</h3>
 <div class="mt-3" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
 <div v-for="f in sysFields" :key="f.key"><label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px">{{f.label}}</label>
 <input v-if="f.type==='time'" v-model="sys[f.key]" type="time" style="width:100%"/>
@@ -214,88 +215,13 @@ app.component('admin-settings',{emits:['save'],template:`
 </div>
 </div>
 <button class="btn-primary mt-3" @click="saveSystem">保存系统参数</button></div>
-<div class="card mt-4"><h3 class="card-title">管理员密码</h3>
+<div v-if="isAdmin" class="card mt-4"><h3 class="card-title">管理员密码</h3>
 <div class="mt-3" style="display:flex;gap:8px;align-items:center">
 <input v-model="newAdminPass" type="password" placeholder="新密码" style="flex:1"/>
 <button class="btn-primary" @click="changePass" :disabled="!newAdminPass">修改密码</button>
 </div></div>
-<div class="card mt-4"><h3 class="card-title">关于</h3><p class="text-muted mt-2">Douyin Spark Fusion v1.0.0</p></div></div>`,
-setup(props,{emit}){const settings=reactive({DINGTALK_WEBHOOK:'',FEISHU_WEBHOOK:'',WECOM_WEBHOOK:'',TELEGRAM_BOT_TOKEN:'',TELEGRAM_CHAT_ID:'',BARK_DEVICE_KEY:'',RESEND_API_KEY:'',RESEND_FROM:'',MAIL_TO:''});
-const sys=reactive({schedule_time:'21:00',jitter_minutes:30,send_gap_min:6,send_gap_max:12,max_friends_per_run:20,daily_limit:50,rate_limit_cooldown:45,retry_delay:45,allow_registration:true});
-const chEn=reactive({dingtalk:true,feishu:true,wecom:true,telegram:true,bark:true,email:true});
-const testing=ref(''),newAdminPass=ref('');
-const channels=[{key:'dingtalk',label:'钉钉',fields:[{key:'DINGTALK_WEBHOOK',placeholder:'Webhook URL'}]},{key:'feishu',label:'飞书',fields:[{key:'FEISHU_WEBHOOK',placeholder:'Webhook URL'}]},{key:'wecom',label:'企业微信',fields:[{key:'WECOM_WEBHOOK',placeholder:'Webhook URL'}]},{key:'telegram',label:'Telegram',fields:[{key:'TELEGRAM_BOT_TOKEN',placeholder:'Bot Token'},{key:'TELEGRAM_CHAT_ID',placeholder:'Chat ID'}]},{key:'bark',label:'Bark',fields:[{key:'BARK_DEVICE_KEY',placeholder:'Device Key'}]},{key:'email',label:'邮件 (Resend)',fields:[{key:'RESEND_API_KEY',placeholder:'Resend API Key'},{key:'RESEND_FROM',placeholder:'发件人'},{key:'MAIL_TO',placeholder:'收件邮箱'}]}];
-const sysFields=[{key:'schedule_time',label:'定时调度时间',type:'time'},{key:'jitter_minutes',label:'波动分钟数',type:'number'},{key:'send_gap_min',label:'发送间隔(最小)',type:'number'},{key:'send_gap_max',label:'发送间隔(最大)',type:'number'},{key:'max_friends_per_run',label:'每轮最大好友',type:'number'},{key:'daily_limit',label:'每日发送上限',type:'number'},{key:'rate_limit_cooldown',label:'限流冷却(分钟)',type:'number'},{key:'retry_delay',label:'重试延迟(分钟)',type:'number'},{key:'allow_registration',label:'允许注册',type:'bool'}];
-const testChannel=async(ch)=>{testing.value=ch.key;try{const r=await api.post('/notify/test',{channel:ch.key});const app=document.getElementById('app').__vue_app__;const ctx=app._instance?.setupState||app._instance?.proxy;if(r.data?.success){if(ctx&&ctx.showToast)ctx.showToast(ch.label+' 测试通知已发送')}}catch(e){}finally{testing.value=''}};
-const saveNotifications=()=>{const d={};Object.keys(settings).forEach(k=>{d[k]=settings[k]});emit('save',d)};
-const saveSystem=()=>{const d={};Object.keys(sys).forEach(k=>{d[k]=sys[k]});emit('save',d)};
-const changePass=async()=>{if(!newAdminPass.value)return;try{const r=await api.post('/settings',{admin_pass:newAdminPass.value});if(r.data?.success){const app=document.getElementById('app').__vue_app__;const ctx=app._instance?.setupState||app._instance?.proxy;if(ctx&&ctx.showToast)ctx.showToast('密码已修改');newAdminPass.value=''}}catch(e){}};
-const load=async()=>{try{const r=await api.get('/settings');if(r.data?.notifications){Object.keys(settings).forEach(k=>{if(r.data.notifications[k]!==undefined)settings[k]=r.data.notifications[k]})};if(r.data?.system){Object.keys(sys).forEach(k=>{if(r.data.system[k]!==undefined)sys[k]=r.data.system[k]})}}catch(e){}};
-onMounted(()=>load());
-return{settings,sys,chEn,channels,sysFields,testing,newAdminPass,testChannel,saveNotifications,saveSystem,changePass}}})
-
-app.component('history-page',{emits:['refresh'],template:`
-<div><div class="page-header"><h2 class="page-title">消息历史</h2><div class="header-actions"><input v-model="filterName" placeholder="筛选好友名称" style="width:200px" @input="onFilter"/><button class="btn-secondary" @click="refresh">刷新</button></div></div>
-<div v-if="rows.length" class="card mt-4" style="padding:0"><table class="table"><thead><tr><th>时间</th><th>好友</th><th>消息</th><th>状态</th></tr></thead><tbody><tr v-for="r in rows" :key="r.id"><td class="text-muted">{{(r.created_at||'').replace('T',' ').substring(0,19)}}</td><td>{{r.friend_name}}</td><td class="text-muted">{{r.message}}</td><td><span class="badge" :class="r.status==='success'?'badge-green':'badge-red'">{{r.status==='success'?'成功':'失败'}}</span></td></tr></tbody></table></div>
-<p v-else class="text-muted mt-4">暂无消息记录</p>
-<div v-if="sendCounts.length" class="card mt-4"><h3 class="card-title mb-4">发送统计</h3><div class="friend-grid"><div class="friend-card" v-for="sc in sendCounts" :key="sc.name"><div class="friend-row"><div class="friend-name">{{sc.name}}</div><span class="badge badge-green">{{sc.count}}条</span></div></div></div></div></div>`,
-setup(props,{emit}){const rows=ref([]),filterName=ref(''),sendCounts=ref([]);
-const refresh=async()=>{try{const app=document.getElementById('app').__vue_app__;const ctx=app._instance?.setupState||app._instance?.proxy;if(ctx&&ctx.loadHistory)await ctx.loadHistory(filterName.value);const r=await api.get('/messages/history?friend_name='+encodeURIComponent(filterName.value)+'&limit=200');rows.value=r.data||[];buildCounts()}catch(e){}};
-const buildCounts=()=>{const m={};rows.value.forEach(r=>{m[r.friend_name]=(m[r.friend_name]||0)+1});sendCounts.value=Object.entries(m).map(([name,count])=>({name,count})).sort((a,b)=>b.count-a.count)};
-const onFilter=()=>refresh();
-onMounted(()=>refresh());
-return{rows,filterName,sendCounts,refresh,onFilter}}});
-
-app.component('status-page',{template:`
-<div><h2 class="page-title">系统状态</h2>
-<div class="stats-grid"><div class="stat-card" v-for="(s,i) in statCards" :key="s.key" :style="{animationDelay:i*0.08+'s'}"><div class="stat-value">{{s.value}}</div><div class="stat-label">{{s.label}}</div></div></div>
-<div class="card mt-6"><h3 class="card-title">资源使用</h3>
-<div class="mt-3" style="display:flex;flex-direction:column;gap:8px">
-<div style="display:flex;justify-content:space-between;font-size:13px"><span>CPU</span><span :class="status.cpu_percent>80?'text-red':''">{{status.cpu_percent}}%</span></div>
-<div style="width:100%;height:6px;background:var(--bg-hover);border-radius:3px"><div :style="{width:status.cpu_percent+'%',height:'100%',background:status.cpu_percent>80?'var(--red)':'var(--green)',borderRadius:'3px',transition:'width .3s'}"></div></div>
-<div style="display:flex;justify-content:space-between;font-size:13px"><span>内存</span><span :class="status.memory_percent>80?'text-red':''">{{status.memory_percent}}% ({{status.memory_used_gb}}/{{status.memory_total_gb}} GB)</span></div>
-<div style="width:100%;height:6px;background:var(--bg-hover);border-radius:3px"><div :style="{width:status.memory_percent+'%',height:'100%',background:status.memory_percent>80?'var(--red)':'var(--green)',borderRadius:'3px',transition:'width .3s'}"></div></div>
-<div style="display:flex;justify-content:space-between;font-size:13px"><span>磁盘</span><span :class="status.disk_percent>80?'text-red':''">{{status.disk_percent}}% ({{status.disk_free_gb}} GB 可用)</span></div>
-<div style="width:100%;height:6px;background:var(--bg-hover);border-radius:3px"><div :style="{width:status.disk_percent+'%',height:'100%',background:status.disk_percent>80?'var(--red)':'var(--green)',borderRadius:'3px',transition:'width .3s'}"></div></div>
-</div></div>
-<div class="card mt-4"><h3 class="card-title">发送统计</h3>
-<div class="mt-3" style="display:flex;gap:24px;font-size:13px"><div><span class="text-muted">今日发送: </span><span>{{status.today_sent}}</span></div><div><span class="text-muted">成功率: </span><span>{{status.today_total>0?Math.round(status.today_sent/status.today_total*100):0}}%</span></div><div><span class="text-muted">限流次数: </span><span :class="status.rate_limited>0?'text-red':''">{{status.rate_limited}}</span></div></div></div>
-<div class="card mt-4"><h3 class="card-title">会话状态</h3>
-<div class="mt-3" style="display:flex;gap:24px;font-size:13px"><div><span class="text-muted">Cookie: </span><span class="badge" :class="status.cookie_valid?'badge-green':'badge-red'">{{status.cookie_valid?'有效':'无效'}}</span></div><div><span class="text-muted">运行时间: </span><span>{{status.uptime_hours}} 小时</span></div></div></div></div>`,
-setup(){const status=reactive({cpu_percent:0,memory_percent:0,memory_used_gb:0,memory_total_gb:0,disk_percent:0,disk_free_gb:0,uptime_hours:0,today_sent:0,today_total:0,rate_limited:0,cookie_valid:false});
-const statCards=computed(()=>[{key:'cpu',label:'CPU使用率',value:status.cpu_percent+'%'},{key:'mem',label:'内存使用率',value:status.memory_percent+'%'},{key:'disk',label:'磁盘使用率',value:status.disk_percent+'%'},{key:'uptime',label:'运行时间',value:status.uptime_hours+' 小时'}]);
-const fetchStatus=async()=>{try{const r=await api.get('/status');if(r.data)Object.assign(status,r.data)}catch(e){}};
-onMounted(()=>{fetchStatus();setInterval(fetchStatus,30000)});
-return{status,statCards}}});
-
-app.component('admin-accounts',{emits:['refresh'],template:`
-<div><div class="page-header"><h2 class="page-title">账号管理</h2></div>
-<div class="card mt-4" style="padding:12px 16px">
-<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-<label class="friend-item" :class="{checked:allChecked}" style="font-size:12px;padding:4px 8px"><input type="checkbox" :checked="allChecked" @change="toggleAll" style="width:auto;margin:0"/> 全选</label>
-<button class="btn-danger btn-sm" @click="batchDelete" :disabled="checkedIds.length===0">删除选中 ({{checkedIds.length}})</button>
-<button class="btn-secondary btn-sm" @click="batchToggle(true)" :disabled="checkedIds.length===0">启用选中</button>
-<button class="btn-secondary btn-sm" @click="batchToggle(false)" :disabled="checkedIds.length===0">禁用选中</button>
-<input v-model="search" placeholder="搜索账号/用户" style="width:200px;margin-left:auto"/>
-</div></div>
-<div v-if="rows.length" class="card mt-4" style="padding:0"><table class="table"><thead><tr><th style="width:40px"></th><th>ID</th><th>所属用户</th><th>账号名</th><th>手机号</th><th>登录状态</th><th>活跃状态</th><th>操作</th></tr></thead><tbody><tr v-for="a in filtered" :key="a.id"><td><input type="checkbox" :checked="checkedIds.includes(a.id)" @change="toggleCheck(a.id)" style="width:auto;margin:0"/></td><td class="text-muted">{{a.id}}</td><td>{{a.owner_username||'—'}}</td><td>{{a.name}}</td><td class="text-muted">{{a.phone||'—'}}</td><td><span class="badge" :class="a.cookies&&a.cookies!=='[]'?'badge-green':'badge-amber'">{{a.cookies&&a.cookies!=='[]'?'已登录':'未登录'}}</span></td><td><span class="badge" :class="a.is_active!==0?'badge-green':'badge-red'">{{a.is_active!==0?'活跃':'已禁用'}}</span></td><td><div style="display:flex;gap:4px"><button class="btn-danger btn-sm" @click="delOne(a.id)">删除</button><button class="btn-secondary btn-sm" @click="toggleOne(a.id,a.is_active!==0)">{{a.is_active!==0?'禁用':'启用'}}</button></div></td></tr></tbody></table></div>
-<p v-else class="text-muted mt-4">暂无账号</p></div>`,
-setup(props,{emit}){const rows=ref([]),checkedIds=ref([]),search=ref('');
-const allChecked=computed(()=>{const f=filtered.value;return f.length>0&&f.every(a=>checkedIds.value.includes(a.id))});
-const load=async()=>{try{const r=await api.get('/admin/accounts');rows.value=r.data||[]}catch(e){}};
-const filtered=computed(()=>{if(!search.value)return rows.value;const s=search.value.toLowerCase();return rows.value.filter(a=>(a.name||'').toLowerCase().includes(s)||(a.owner_username||'').toLowerCase().includes(s)||(a.phone||'').includes(s))});
-const toggleCheck=id=>{if(checkedIds.value.includes(id))checkedIds.value=checkedIds.value.filter(i=>i!==id);else checkedIds.value=[...checkedIds.value,id]};
-const toggleAll=()=>{if(allChecked.value)checkedIds.value=[];else checkedIds.value=filtered.value.map(a=>a.id)};
-const batchDelete=async()=>{if(!confirm('确认删除'+checkedIds.value.length+'个账号？'))return;try{await api.post('/admin/accounts/batch-delete',{account_ids:checkedIds.value});checkedIds.value=[];emit('refresh');load();}catch(e){}};
-const batchToggle=async(active)=>{try{await api.post('/admin/accounts/batch-toggle',{account_ids:checkedIds.value,is_active:active});checkedIds.value=[];emit('refresh');load();}catch(e){}};
-const delOne=async(id)=>{if(!confirm('确认删除？'))return;try{await api.post('/admin/accounts/batch-delete',{account_ids:[id]});emit('refresh');load();}catch(e){}};
-const toggleOne=async(id,cur)=>{try{await api.post('/admin/accounts/batch-toggle',{account_ids:[id],is_active:!cur});emit('refresh');load();}catch(e){}};
-onMounted(()=>load());
-return{rows,checkedIds,search,allChecked,filtered,toggleCheck,toggleAll,batchDelete,batchToggle,delOne,toggleOne}}});
-
-app.component('admin-groups',{template:`
-<div><div class="page-header"><h2 class="page-title">用户组管理</h2></div>
-<div class="mt-4" style="display:flex;gap:16px">
+<div v-if="isAdmin" class="card mt-4"><h3 class="card-title">用户组管理</h3>
+<div class="mt-3" style="display:flex;gap:16px">
 <div class="card" style="width:280px;flex-shrink:0;padding:0">
 <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;gap:8px"><input v-model="newGroupName" placeholder="新建组名" style="flex:1" @keyup.enter="createGroup"/><button class="btn-primary btn-sm" @click="createGroup" :disabled="!newGroupName.trim()">新建</button></div>
 <div style="padding:8px"><div v-for="g in groups" :key="g.id" :class="{active:selectedGroup===g.id}" style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-radius:6px;cursor:pointer;transition:background .15s" :style="{background:selectedGroup===g.id?'var(--bg-hover)':''}" @click="selectGroup(g.id)">
@@ -311,8 +237,19 @@ app.component('admin-groups',{template:`
 </div>
 <div class="card" style="flex:1;padding:0" v-else><p class="text-muted" style="padding:12px 16px">选择左侧用户组查看成员</p></div>
 </div>
-<div v-if="showEdit" class="card mt-4" style="display:flex;gap:8px;align-items:center"><input v-model="editName" placeholder="组名" style="flex:1"/><button class="btn-primary btn-sm" @click="saveEdit" :disabled="!editName.trim()">保存</button><button class="btn-secondary btn-sm" @click="showEdit=false">取消</button></div></div>`,
-setup(){const groups=ref([]),allUsers=ref([]),groupUsers=ref([]),selectedGroup=ref(0),newGroupName=ref(''),addUserId=ref(0),showEdit=ref(false),editName=ref(''),editingId=ref(0);
+<div v-if="showEdit" class="mt-3" style="display:flex;gap:8px;align-items:center"><input v-model="editName" placeholder="组名" style="flex:1"/><button class="btn-primary btn-sm" @click="saveEdit" :disabled="!editName.trim()">保存</button><button class="btn-secondary btn-sm" @click="showEdit=false">取消</button></div></div>
+<div class="card mt-4"><h3 class="card-title">关于</h3><p class="text-muted mt-2">Douyin Spark Fusion v{{version}}</p><p class="text-muted">融合 23 个抖音火花项目的最佳实践</p></div></div>`,
+setup(props,{emit}){const settings=reactive({DINGTALK_WEBHOOK:'',FEISHU_WEBHOOK:'',WECOM_WEBHOOK:'',TELEGRAM_BOT_TOKEN:'',TELEGRAM_CHAT_ID:'',BARK_DEVICE_KEY:'',RESEND_API_KEY:'',RESEND_FROM:'',MAIL_TO:''});
+const sys=reactive({schedule_time:'21:00',jitter_minutes:30,send_gap_min:6,send_gap_max:12,max_friends_per_run:20,daily_limit:50,rate_limit_cooldown:45,retry_delay:45,allow_registration:true});
+const chEn=reactive({dingtalk:true,feishu:true,wecom:true,telegram:true,bark:true,email:true});
+const testing=ref(''),newAdminPass=ref(''),isAdmin=ref(false);
+const channels=[{key:'dingtalk',label:'钉钉',fields:[{key:'DINGTALK_WEBHOOK',placeholder:'Webhook URL'}]},{key:'feishu',label:'飞书',fields:[{key:'FEISHU_WEBHOOK',placeholder:'Webhook URL'}]},{key:'wecom',label:'企业微信',fields:[{key:'WECOM_WEBHOOK',placeholder:'Webhook URL'}]},{key:'telegram',label:'Telegram',fields:[{key:'TELEGRAM_BOT_TOKEN',placeholder:'Bot Token'},{key:'TELEGRAM_CHAT_ID',placeholder:'Chat ID'}]},{key:'bark',label:'Bark',fields:[{key:'BARK_DEVICE_KEY',placeholder:'Device Key'}]},{key:'email',label:'邮件 (Resend)',fields:[{key:'RESEND_API_KEY',placeholder:'Resend API Key'},{key:'RESEND_FROM',placeholder:'发件人'},{key:'MAIL_TO',placeholder:'收件邮箱'}]}];
+const sysFields=[{key:'schedule_time',label:'定时调度时间',type:'time'},{key:'jitter_minutes',label:'波动分钟数',type:'number'},{key:'send_gap_min',label:'发送间隔(最小)',type:'number'},{key:'send_gap_max',label:'发送间隔(最大)',type:'number'},{key:'max_friends_per_run',label:'每轮最大好友',type:'number'},{key:'daily_limit',label:'每日发送上限',type:'number'},{key:'rate_limit_cooldown',label:'限流冷却(分钟)',type:'number'},{key:'retry_delay',label:'重试延迟(分钟)',type:'number'},{key:'allow_registration',label:'允许注册',type:'bool'}];
+const testChannel=async(ch)=>{testing.value=ch.key;try{const r=await api.post('/notify/test',{channel:ch.key});const app=document.getElementById('app').__vue_app__;const ctx=app._instance?.setupState||app._instance?.proxy;if(r.data?.success){if(ctx&&ctx.showToast)ctx.showToast(ch.label+' 测试通知已发送')}}catch(e){}finally{testing.value=''}};
+const saveNotifications=()=>{const d={};Object.keys(settings).forEach(k=>{d[k]=settings[k]});emit('save',d)};
+const saveSystem=()=>{const d={};Object.keys(sys).forEach(k=>{d[k]=sys[k]});emit('save',d)};
+const changePass=async()=>{if(!newAdminPass.value)return;try{const r=await api.post('/settings',{admin_pass:newAdminPass.value});if(r.data?.success){const app=document.getElementById('app').__vue_app__;const ctx=app._instance?.setupState||app._instance?.proxy;if(ctx&&ctx.showToast)ctx.showToast('密码已修改');newAdminPass.value=''}}catch(e){}};
+const groups=ref([]),allUsers=ref([]),groupUsers=ref([]),selectedGroup=ref(0),newGroupName=ref(''),addUserId=ref(0),showEdit=ref(false),editName=ref(''),editingId=ref(0);
 const currentGroupName=computed(()=>{const g=groups.value.find(g=>g.id===selectedGroup.value);return g?g.name:''});
 const loadGroups=async()=>{try{const r=await api.get('/admin/groups');groups.value=r.data||[]}catch(e){}};
 const loadAllUsers=async()=>{try{const r=await api.get('/admin/users');allUsers.value=r.data||[]}catch(e){}};
@@ -324,8 +261,9 @@ const editGroup=g=>{editingId.value=g.id;editName.value=g.name;showEdit.value=tr
 const saveEdit=async()=>{try{await api.put('/admin/groups/'+editingId.value,{name:editName.value.trim()});showEdit.value=false;loadGroups();loadGroupUsers();}catch(e){}};
 const addUserToGroup=async()=>{try{await api.put('/admin/users/'+addUserId.value+'/group',{group_id:selectedGroup.value});addUserId.value=0;loadGroupUsers();loadAllUsers();}catch(e){}};
 const removeUser=async(uid)=>{try{await api.put('/admin/users/'+uid+'/group',{group_id:0});loadGroupUsers();loadAllUsers();}catch(e){}};
-onMounted(()=>{loadGroups();loadAllUsers()});
-return{groups,allUsers,groupUsers,selectedGroup,newGroupName,addUserId,showEdit,editName,editingId,currentGroupName,selectGroup,createGroup,deleteGroup,editGroup,saveEdit,addUserToGroup,removeUser}}});
+const load=async()=>{try{const r=await api.get('/settings');if(r.data?.notifications){Object.keys(settings).forEach(k=>{if(r.data.notifications[k]!==undefined)settings[k]=r.data.notifications[k]})};if(r.data?.system){Object.keys(sys).forEach(k=>{if(r.data.system[k]!==undefined)sys[k]=r.data.system[k]})}}catch(e){}};
+onMounted(()=>{const app=document.getElementById('app').__vue_app__;const ctx=app._instance?.setupState||app._instance?.proxy;if(ctx&&ctx.user&&ctx.user.is_admin){isAdmin.value=true;loadGroups();loadAllUsers()}load()});
+return{settings,sys,chEn,channels,sysFields,testing,newAdminPass,isAdmin,testChannel,saveNotifications,saveSystem,changePass,groups,allUsers,groupUsers,selectedGroup,newGroupName,addUserId,showEdit,editName,editingId,currentGroupName,selectGroup,createGroup,deleteGroup,editGroup,saveEdit,addUserToGroup,removeUser}}});
 
 app.mount('#app')
 </script>
