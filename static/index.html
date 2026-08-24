@@ -57,13 +57,16 @@
 <login-page v-else @login="onLogin"></login-page>
 <button class="theme-toggle" @click="toggleTheme" :title="theme==='light'?'暗色模式':'亮色模式'">{{ theme==='light' ? '🌙' : '☀️' }}</button>
 <div v-if="toast.show" class="toast" :class="'toast-'+toast.type">{{ toast.msg }}</div>
+<div v-if="appError" class="error-boundary"><div class="card"><h3>应用错误</h3><p class="text-muted">{{ appError }}</p><button class="btn-primary" @click="appError=''">关闭</button></div></div>
 </div>
 <script src="/static/js/api.js"></script>
 <script src="/static/js/store.js"></script>
 <script>
+const appError=ref('');
 const app = createApp({setup(){
 onMounted(()=>{restoreSession()});
-return{page,user,theme,version,stats,logList,accountsList,friendList,taskList,historyList,isLoginPage,toast,showToast,toggleTheme,logout,onLogin,loadStats,loadAccounts,loadFriends,loadTasks,loadHistory,uploadCookies,syncFriends,sendMessage,createTask,deleteTask,runTask,saveSettings};
+onErrorCaptured(err=>{appError.value=err.message||'未知错误';console.error('App error:',err);return false});
+return{page,user,theme,version,appError,stats,logList,accountsList,friendList,taskList,historyList,isLoginPage,toast,showToast,toggleTheme,logout,onLogin,loadStats,loadAccounts,loadFriends,loadTasks,loadHistory,uploadCookies,syncFriends,sendMessage,createTask,deleteTask,runTask,saveSettings};
 }});
 
 app.component('login-page',{template:`
