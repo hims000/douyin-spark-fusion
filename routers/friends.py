@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
@@ -14,7 +15,7 @@ from .auth import app_error, require_user
 router = APIRouter(prefix="/api/friends", tags=["friends"])
 _friends_executor = ThreadPoolExecutor(max_workers=1)
 
-# Shared executor for all Playwright operations
+
 def get_playwright_executor():
     return _friends_executor
 
@@ -78,13 +79,11 @@ async def sync_friends(req: Request, user: dict[str, Any] = Depends(require_user
     if not storage_state and cookies:
         storage_state = _cookies_to_storage_state(cookies)
 
-    import asyncio
-
     loop = asyncio.get_running_loop()
     try:
         result = await asyncio.wait_for(
             loop.run_in_executor(
-                get_playwright_executor(), fetch_chat_contacts, None, storage_state, account_id
+                _friends_executor, fetch_chat_contacts, None, storage_state, account_id
             ),
             timeout=120,
         )
