@@ -352,12 +352,12 @@ async def get_qr_code():
     return {"qr_b64": "", "token": ""}
 
 
-@router.get("/qr-login/{token}/wait", summary="Wait for QR code scan")
-async def wait_qr_scan(token: str, timeout: int = 300):
+@router.post("/qr-login/{token}/save", summary="Save QR login cookies to account")
+async def save_qr_login(token: str, req: Request, user: dict[str, Any] = Depends(require_user), timeout: int = 300):
     with _qr_sessions_lock:
         session = _qr_sessions.pop(token, None)
     if not session:
-        return {"success": False, "cookies": []}
+        return {"success": False, "error": "会话已过期"}
 
     pw = session["pw"]
     browser = session["browser"]
@@ -385,15 +385,101 @@ async def wait_qr_scan(token: str, timeout: int = 300):
             await page.wait_for_timeout(2000)
 
             if qr_status["status"] == "confirmed":
-                return {"success": True, "cookies": await ctx.cookies()}
+                break
 
             cookies = await ctx.cookies()
             for c in cookies:
                 if c["name"] in ("sessionid", "sessionid_ss") and c["value"] and len(c["value"]) > 10:
-                    return {"success": True, "cookies": cookies}
-    finally:
-        page.remove_listener("response", check_response)
+                    break
+            else:
+                continue
+            break
+        else:
+            await browser.close()
+            await pw.stop()
+            return {"success": False, "error": "扫码超时"}
+
+        all_cookies = await ctx.cookies()
+        await page.goto("https://www.douyin.com/chat", wait_until="domcontentloaded", timeout=30000)
+        await page.wait_for_timeout(10000)
+
+        nickname = await page.evaluate("""
+            () => {
+                const items = document.querySelectorAll('.conversationConversationItemtitle');
+                if (items.length > 0) {
+                    const name = (items[0].textContent || '').trim();
+                    if (name && name.length > 0 && name.length < 30) return name;
+                }
+                return null;
+            }
+        """)
+
+        friends_data = await page.evaluate("""
+            () => {
+                const out = [];
+                const seen = new Set();
+                document.querySelectorAll('.conversationConversationItemtitle').forEach(t => {
+                    const name = (t.textContent || '').trim();
+                    if (!name || seen.has(name)) return;
+                    seen.add(name);
+                    const wrap = t.parentElement;
+                    const s = wrap ? wrap.querySelector('.commonStreaknormalText') : null;
+                    out.push({ name: name, streak: s ? (s.textContent || '').trim() : '' });
+                });
+                return out;
+            }
+        """)
+
+        body = await req.json() if req.headers.get("content-length") else {}
+        account_id = body.get("account_id", 0)
+
+        cookies_json = json.dumps(all_cookies, ensure_ascii=False)
+        storage_state = await ctx.storage_state()
+
+        db = await get_db()
+        if account_id:
+            if not user["is_admin"]:
+                acc = await db.execute_fetchall(
+                    "SELECT id FROM accounts WHERE id=? AND user_id=?", (account_id, user["id"])
+                )
+                if not acc:
+                    await db.close()
+                    await browser.close()
+                    await pw.stop()
+                    return {"success": False, "error": "无权操作"}
+            await db.execute(
+                "UPDATE accounts SET cookies=?, storage_state=?, name=?, updated_at=? WHERE id=?",
+                (cookies_json, json.dumps(storage_state, ensure_ascii=False), nickname or "未命名", datetime.now().isoformat(), account_id),
+            )
+        else:
+            cursor = await db.execute(
+                "INSERT INTO accounts(user_id, name, cookies, storage_state) VALUES(?,?,?,?)",
+                (user["id"], nickname or "未命名", cookies_json, json.dumps(storage_state, ensure_ascii=False)),
+            )
+            account_id = cursor.lastrowid
+
+        if friends_data:
+            await db.execute("DELETE FROM friends WHERE account_id=?", (account_id,))
+            for f in friends_data:
+                fname = f.get("name", "")
+                if not fname:
+                    continue
+                streak = f.get("streak", "")
+                spark_days = 0
+                if streak:
+                    try:
+                        spark_days = int("".join(c for c in streak if c.isdigit()) or "0")
+                    except ValueError:
+                        pass
+                await db.execute(
+                    "INSERT INTO friends(account_id, user_id, name, spark_days) VALUES(?,?,?,?)",
+                    (account_id, user["id"], fname, spark_days),
+                )
+
+        await db.commit()
+        await db.close()
         await browser.close()
         await pw.stop()
-
-    return {"success": False, "cookies": []}
+        return {"success": True, "account_id": account_id, "nickname": nickname, "friend_count": len(friends_data)}
+    finally:
+        page.remove_listener("response", check_response)
