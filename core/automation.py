@@ -861,7 +861,7 @@ def fetch_chat_contacts(
         goto_ok = False
         for attempt in range(3):
             try:
-                page.goto(DOUYIN_CHAT_URL, timeout=90000, wait_until="domcontentloaded")
+                page.goto(DOUYIN_CHAT_URL, timeout=30000, wait_until="domcontentloaded")
                 goto_ok = True
                 break
             except Exception as e:
@@ -901,7 +901,7 @@ def fetch_chat_contacts(
         for attempt in range(3):
             try:
                 page.wait_for_selector(
-                    ".conversationConversationItemtitle", timeout=45000
+                    ".conversationConversationItemtitle", timeout=15000
                 )
             except Exception:
                 logger.info("第 %s 次等待联系人列表超时，页面URL: %s", attempt + 1, page.url)

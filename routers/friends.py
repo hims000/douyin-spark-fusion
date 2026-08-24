@@ -77,9 +77,15 @@ async def sync_friends(req: Request, user: dict[str, Any] = Depends(require_user
 
     _executor = ThreadPoolExecutor(max_workers=1)
     loop = asyncio.get_running_loop()
-    result = await loop.run_in_executor(
-        _executor, fetch_chat_contacts, None, storage_state
-    )
+    try:
+        result = await asyncio.wait_for(
+            loop.run_in_executor(
+                _executor, fetch_chat_contacts, None, storage_state
+            ),
+            timeout=120,
+        )
+    except asyncio.TimeoutError:
+        result = {"error": "同步超时，请检查 Cookie 是否有效"}
 
     if result.get("error"):
         return {"success": False, "error": result["error"]}
