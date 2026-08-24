@@ -11,7 +11,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
 CONFIG_PATH = DATA_DIR / "config.json"
 ENV_PATH = BASE_DIR / ".env"
-VERSION = "1.0.8"
+VERSION = "1.0.9"
 
 
 def _read_env() -> dict[str, str]:
