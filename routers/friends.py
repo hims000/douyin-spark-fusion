@@ -80,9 +80,12 @@ async def sync_friends(req: Request, user: dict[str, Any] = Depends(require_user
 
     import asyncio
 
+    loop = asyncio.get_running_loop()
     try:
         result = await asyncio.wait_for(
-            asyncio.to_thread(fetch_chat_contacts, None, storage_state),
+            loop.run_in_executor(
+                get_playwright_executor(), fetch_chat_contacts, None, storage_state, account_id
+            ),
             timeout=120,
         )
     except asyncio.TimeoutError:

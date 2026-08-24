@@ -92,6 +92,7 @@ async def send_message(req: Request, user: dict[str, Any] = Depends(require_user
             dry_run=dry_run,
             cookies=None,
             storage_state=storage_state,
+            account_id=account_id,
         ),
     )
 

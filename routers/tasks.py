@@ -195,6 +195,7 @@ async def run_task_now(task_id: int, user: dict[str, Any] = Depends(require_user
             dry_run=False,
             cookies=None,
             storage_state=storage_state,
+            account_id=account_id,
         ),
     )
 
@@ -284,6 +285,7 @@ async def run_all_tasks(user: dict[str, Any] = Depends(require_user)):
                     dry_run=False,
                     cookies=None,
                     storage_state=storage_state,
+                    account_id=account_id,
                 ),
             )
 

@@ -28,11 +28,33 @@ _browser_pool: dict[str, Any] = {}
 _browser_cache: dict[str, tuple] = {}
 _browser_cache_lock = threading.Lock()
 _thread_local = threading.local()
+_session_cache: dict[int, tuple] = {}
+_session_cache_lock = threading.Lock()
 
 def _get_thread_pool() -> dict[str, Any]:
     if not hasattr(_thread_local, "browser_pool"):
         _thread_local.browser_pool = {}
     return _thread_local.browser_pool
+
+
+def cache_browser_session(account_id: int, pw, browser, context):
+    with _session_cache_lock:
+        _session_cache[account_id] = (pw, browser, context)
+
+
+def get_cached_browser_session(account_id: int):
+    with _session_cache_lock:
+        return _session_cache.get(account_id)
+
+
+def clear_cached_browser_session(account_id: int):
+    with _session_cache_lock:
+        old = _session_cache.pop(account_id, None)
+        if old:
+            try:
+                old[2].close()
+            except Exception:
+                pass
 
 
 def _get_cached_browser(cookies_hash: str):
@@ -841,6 +863,7 @@ def _cookies_to_storage_state(cookies: list[dict[str, Any]]) -> dict[str, Any]:
 def fetch_chat_contacts(
     cookies: list[dict[str, Any]] | None = None,
     storage_state: dict[str, Any] | None = None,
+    account_id: int = 0,
 ) -> dict[str, Any]:
     result: dict[str, Any] = {"at": _now(), "names": [], "error": None}
     context = None
@@ -955,19 +978,22 @@ def fetch_chat_contacts(
         logger.error("获取联系人异常: %s", e)
         result["error"] = f"获取联系人异常: {e}"
     finally:
-        if context:
+        if account_id and context and browser and pw:
+            cache_browser_session(account_id, pw, browser, context)
+        else:
+            if context:
+                try:
+                    context.close()
+                except Exception:
+                    pass
             try:
-                context.close()
+                browser.close()
             except Exception:
                 pass
-        try:
-            browser.close()
-        except Exception:
-            pass
-        try:
-            pw.stop()
-        except Exception:
-            pass
+            try:
+                pw.stop()
+            except Exception:
+                pass
     return result
 
 
@@ -1032,36 +1058,43 @@ def run_send_task(
     dry_run: bool = False,
     cookies: list[dict[str, Any]] | None = None,
     storage_state: dict[str, Any] | None = None,
+    account_id: int = 0,
 ) -> tuple[bool, str]:
     if _already_sent_today(friend_name):
         return False, "今日已发送"
-
-    if not cookies and not storage_state:
-        return False, "未配置登录凭据"
 
     context = None
     page = None
     browser = None
     pw = None
+    own_session = False
 
     try:
-        pw = sync_playwright().start()
-        browser = pw.chromium.launch(
-            headless=settings.headless,
-            args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
-        )
-        if storage_state and isinstance(storage_state, (dict, str)):
-            context = browser.new_context(
-                storage_state=storage_state,
-                viewport={"width": 1366, "height": 768},
-            )
+        cached = get_cached_browser_session(account_id) if account_id else None
+        if cached:
+            pw, browser, context = cached
+            page = context.new_page()
+        elif not cookies and not storage_state:
+            return False, "未配置登录凭据"
         else:
-            context = browser.new_context(
-                viewport={"width": 1366, "height": 768},
+            own_session = True
+            pw = sync_playwright().start()
+            browser = pw.chromium.launch(
+                headless=settings.headless,
+                args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
             )
-            if cookies:
-                context.add_cookies(_normalize_cookies(cookies))
-        page = context.new_page()
+            if storage_state and isinstance(storage_state, (dict, str)):
+                context = browser.new_context(
+                    storage_state=storage_state,
+                    viewport={"width": 1366, "height": 768},
+                )
+            else:
+                context = browser.new_context(
+                    viewport={"width": 1366, "height": 768},
+                )
+                if cookies:
+                    context.add_cookies(_normalize_cookies(cookies))
+            page = context.new_page()
 
         goto_ok = False
         for attempt in range(3):
@@ -1101,23 +1134,24 @@ def run_send_task(
         logger.error("发送任务异常: %s", e)
         return False, f"运行异常: {e}"
     finally:
-        if page:
+        if page and not cached:
             try:
                 page.close()
             except Exception:
                 pass
-        if context:
-            try:
-                context.close()
-            except Exception:
-                pass
-        if browser:
-            try:
-                browser.close()
-            except Exception:
-                pass
-        if pw:
-            try:
-                pw.stop()
-            except Exception:
-                pass
+        if own_session:
+            if context:
+                try:
+                    context.close()
+                except Exception:
+                    pass
+            if browser:
+                try:
+                    browser.close()
+                except Exception:
+                    pass
+            if pw:
+                try:
+                    pw.stop()
+                except Exception:
+                    pass
