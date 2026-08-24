@@ -79,6 +79,19 @@ async def send_email(host, port, user, password, to, subject, body, attachments=
         server.sendmail(user, [to], msg.as_string())
 
 
+async def send_resend(api_key, sender, to, subject, html):
+    payload = {"from": sender, "to": [to], "subject": subject, "html": html}
+    async with aiohttp.ClientSession() as s, s.post(
+        "https://api.resend.com/emails",
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        json=payload,
+    ) as r:
+        data = await r.json()
+        if r.status != 200:
+            raise ValueError(data.get("message", "Resend API error"))
+        return data
+
+
 async def send_notification(title, content, screenshots=None):
     """统一通知入口，根据环境变量自动启用已配置的通知渠道。失败隔离。"""
     tasks = []
@@ -114,7 +127,17 @@ async def send_notification(title, content, screenshots=None):
                 os.getenv("BARK_URL", "https://api.day.app"),
             )
         )
-    if (
+    if os.getenv("RESEND_API_KEY") and os.getenv("MAIL_TO"):
+        tasks.append(
+            send_resend(
+                os.getenv("RESEND_API_KEY"),
+                os.getenv("RESEND_FROM", "admin@hims.ccwu.cc"),
+                os.getenv("MAIL_TO"),
+                title,
+                content,
+            )
+        )
+    elif (
         os.getenv("SMTP_HOST")
         and os.getenv("SMTP_USER")
         and os.getenv("SMTP_PASS")

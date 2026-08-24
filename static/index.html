@@ -282,10 +282,10 @@ app.component('settings-page',{emits:['save'],template:`
 </div>
 <button class="btn-primary mt-3" @click="save">保存设置</button></div>
 <div class="card mt-4"><h3 class="card-title">关于</h3><p class="text-muted mt-2">Douyin Spark Fusion v1.0.0</p><p class="text-muted">融合 23 个抖音火花项目的最佳实践</p></div></div>`,
-setup(props,{emit}){const settings=reactive({DINGTALK_WEBHOOK:'',FEISHU_WEBHOOK:'',WECOM_WEBHOOK:'',TELEGRAM_BOT_TOKEN:'',TELEGRAM_CHAT_ID:'',BARK_DEVICE_KEY:'',SMTP_HOST:'',SMTP_USER:'',SMTP_PASS:'',MAIL_TO:''});
+setup(props,{emit}){const settings=reactive({DINGTALK_WEBHOOK:'',FEISHU_WEBHOOK:'',WECOM_WEBHOOK:'',TELEGRAM_BOT_TOKEN:'',TELEGRAM_CHAT_ID:'',BARK_DEVICE_KEY:'',RESEND_API_KEY:'',RESEND_FROM:'',MAIL_TO:''});
 const chEn=reactive({dingtalk:true,feishu:true,wecom:true,telegram:true,bark:true,email:true});
 const testing=ref('');
-const channels=[{key:'dingtalk',label:'钉钉',fields:[{key:'DINGTALK_WEBHOOK',placeholder:'Webhook URL'}]},{key:'feishu',label:'飞书',fields:[{key:'FEISHU_WEBHOOK',placeholder:'Webhook URL'}]},{key:'wecom',label:'企业微信',fields:[{key:'WECOM_WEBHOOK',placeholder:'Webhook URL'}]},{key:'telegram',label:'Telegram',fields:[{key:'TELEGRAM_BOT_TOKEN',placeholder:'Bot Token'},{key:'TELEGRAM_CHAT_ID',placeholder:'Chat ID'}]},{key:'bark',label:'Bark',fields:[{key:'BARK_DEVICE_KEY',placeholder:'Device Key'}]},{key:'email',label:'邮件',fields:[{key:'SMTP_HOST',placeholder:'SMTP服务器'},{key:'SMTP_USER',placeholder:'SMTP账号'},{key:'SMTP_PASS',placeholder:'SMTP密码'},{key:'MAIL_TO',placeholder:'收件邮箱'}]}];
+const channels=[{key:'dingtalk',label:'钉钉',fields:[{key:'DINGTALK_WEBHOOK',placeholder:'Webhook URL'}]},{key:'feishu',label:'飞书',fields:[{key:'FEISHU_WEBHOOK',placeholder:'Webhook URL'}]},{key:'wecom',label:'企业微信',fields:[{key:'WECOM_WEBHOOK',placeholder:'Webhook URL'}]},{key:'telegram',label:'Telegram',fields:[{key:'TELEGRAM_BOT_TOKEN',placeholder:'Bot Token'},{key:'TELEGRAM_CHAT_ID',placeholder:'Chat ID'}]},{key:'bark',label:'Bark',fields:[{key:'BARK_DEVICE_KEY',placeholder:'Device Key'}]},{key:'email',label:'邮件 (Resend)',fields:[{key:'RESEND_API_KEY',placeholder:'Resend API Key'},{key:'RESEND_FROM',placeholder:'发件人 (admin@hims.ccwu.cc)'},{key:'MAIL_TO',placeholder:'收件邮箱'}]}];
 const testChannel=async(ch)=>{testing.value=ch.key;try{const r=await api.post('/notify/test',{channel:ch.key});const app=document.getElementById('app').__vue_app__;const ctx=app._instance?.setupState||app._instance?.proxy;if(r.data?.success){if(ctx&&ctx.showToast)ctx.showToast(ch.label+' 测试通知已发送')}}catch(e){}finally{testing.value=''}};
 const save=()=>emit('save',settings);
 const load=async()=>{try{const r=await api.get('/settings');if(r.data?.notifications){Object.keys(settings).forEach(k=>{if(r.data.notifications[k]!==undefined)settings[k]=r.data.notifications[k]})}}catch(e){}};
@@ -327,7 +327,7 @@ app.component('admin-settings',{emits:['save'],template:`
 <button class="btn-primary" @click="changePass" :disabled="!newAdminPass">修改密码</button>
 </div></div>
 <div class="card mt-4"><h3 class="card-title">关于</h3><p class="text-muted mt-2">Douyin Spark Fusion v1.0.0</p></div></div>`,
-setup(props,{emit}){const settings=reactive({DINGTALK_WEBHOOK:'',FEISHU_WEBHOOK:'',WECOM_WEBHOOK:'',TELEGRAM_BOT_TOKEN:'',TELEGRAM_CHAT_ID:'',BARK_DEVICE_KEY:'',SMTP_HOST:'',SMTP_USER:'',SMTP_PASS:'',MAIL_TO:''});
+setup(props,{emit}){const settings=reactive({DINGTALK_WEBHOOK:'',FEISHU_WEBHOOK:'',WECOM_WEBHOOK:'',TELEGRAM_BOT_TOKEN:'',TELEGRAM_CHAT_ID:'',BARK_DEVICE_KEY:'',RESEND_API_KEY:'',RESEND_FROM:'',MAIL_TO:''});
 const sys=reactive({schedule_time:'21:00',jitter_minutes:30,send_gap_min:6,send_gap_max:12,max_friends_per_run:20,daily_limit:50,rate_limit_cooldown:45,retry_delay:45,allow_registration:true});
 const chEn=reactive({dingtalk:true,feishu:true,wecom:true,telegram:true,bark:true,email:true});
 const testing=ref(''),newAdminPass=ref('');
