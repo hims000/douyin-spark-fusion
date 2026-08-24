@@ -8,7 +8,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
 from core.config import settings
-from core.models import get_db, hash_password, verify_password
+from core.models import get_db, get_default_group_id, hash_password, verify_password
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 security = HTTPBearer(auto_error=False)
@@ -137,8 +137,8 @@ async def register(req: RegisterRequest):
             raise HTTPException(400, "邀请码已被使用")
 
     await db.execute(
-        "INSERT INTO users(username, password_hash) VALUES(?,?)",
-        (username, hash_password(password)),
+        "INSERT INTO users(username, password_hash, group_id) VALUES(?,?,?)",
+        (username, hash_password(password), await get_default_group_id()),
     )
     await db.commit()
     user_id = (await db.execute_fetchall("SELECT last_insert_rowid() as id"))[0]["id"]

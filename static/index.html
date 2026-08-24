@@ -216,11 +216,23 @@ app.component('settings-page',{emits:['save'],template:`
 </div>
 </div>
 <button class="btn-primary mt-3" @click="saveNotifications">保存通知设置</button></div>
+<div v-if="isAdmin" class="card mt-4"><h3 class="card-title">注册控制</h3>
+<div class="mt-3" style="display:flex;flex-direction:column;gap:10px">
+<label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+<input type="checkbox" v-model="regControl.allow_registration" style="width:auto;margin:0"/>
+<span style="font-size:13px">允许注册</span>
+</label>
+<label style="display:flex;align-items:center;gap:8px;margin-left:24px;cursor:pointer">
+<input type="checkbox" v-model="regControl.invite_only" :disabled="!regControl.allow_registration" style="width:auto;margin:0"/>
+<span style="font-size:13px" :style="{color:regControl.allow_registration?'var(--text)':'var(--text-muted)'}">仅接受邀请码注册</span>
+</label>
+</div>
+<button class="btn-primary mt-3" @click="saveRegControl">保存注册设置</button></div>
 <div v-if="isAdmin" class="card mt-4"><h3 class="card-title">系统参数</h3>
 <div class="mt-3" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
 <div v-for="f in sysFields" :key="f.key"><label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px">{{f.label}}</label>
 <input v-if="f.type==='time'" v-model="sys[f.key]" type="time" style="width:100%"/>
-<input v-else-if="f.type==='bool'" type="checkbox" v-model="sys[f.key]" style="width:auto" :disabled="f.key==='invite_only' && !sys.allow_registration"/>
+<input v-else-if="f.type==='bool'" type="checkbox" v-model="sys[f.key]" style="width:auto"/>
 <input v-else v-model.number="sys[f.key]" :type="f.type" style="width:100%"/>
 </div>
 </div>
@@ -235,8 +247,8 @@ app.component('settings-page',{emits:['save'],template:`
 <div class="card" style="width:280px;flex-shrink:0;padding:0">
 <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;gap:8px"><input v-model="newGroupName" placeholder="新建组名" style="flex:1" @keyup.enter="createGroup"/><button class="btn-primary btn-sm" @click="createGroup" :disabled="!newGroupName.trim()">新建</button></div>
 <div style="padding:8px"><div v-for="g in groups" :key="g.id" :class="{active:selectedGroup===g.id}" style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-radius:6px;cursor:pointer;transition:background .15s" :style="{background:selectedGroup===g.id?'var(--bg-hover)':''}" @click="selectGroup(g.id)">
-<span style="font-size:13px;font-weight:500">{{g.name}}</span>
-<div style="display:flex;gap:4px" v-if="selectedGroup===g.id"><button class="btn-secondary btn-sm" @click.stop="editGroup(g)">编辑</button><button class="btn-danger btn-sm" @click.stop="deleteGroup(g.id)">删除</button></div>
+<span style="font-size:13px;font-weight:500">{{g.name}}</span><span v-if="g.name==='default'" class="badge badge-amber" style="margin-left:4px">默认</span>
+<div style="display:flex;gap:4px" v-if="selectedGroup===g.id"><button class="btn-secondary btn-sm" @click.stop="editGroup(g)">编辑</button><button v-if="g.name!=='default'" class="btn-danger btn-sm" @click.stop="deleteGroup(g.id)">删除</button></div>
 </div></div>
 <p v-if="groups.length===0" class="text-muted" style="padding:12px 16px">暂无用户组</p>
 </div>
@@ -260,14 +272,16 @@ app.component('settings-page',{emits:['save'],template:`
 <p v-else class="text-muted mt-4">暂无邀请码</p></div>
 <div class="card mt-4"><h3 class="card-title">关于</h3><p class="text-muted mt-2">Douyin Spark Fusion v{{version}}</p><p class="text-muted">融合 23 个抖音火花项目的最佳实践</p></div></div>`,
 setup(props,{emit}){const settings=reactive({DINGTALK_WEBHOOK:'',FEISHU_WEBHOOK:'',WECOM_WEBHOOK:'',TELEGRAM_BOT_TOKEN:'',TELEGRAM_CHAT_ID:'',BARK_DEVICE_KEY:'',RESEND_API_KEY:'',RESEND_FROM:'',MAIL_TO:''});
-const sys=reactive({schedule_time:'21:00',jitter_minutes:30,send_gap_min:6,send_gap_max:12,max_friends_per_run:20,daily_limit:50,rate_limit_cooldown:45,retry_delay:45,allow_registration:true,invite_only:false});
+const sys=reactive({schedule_time:'21:00',jitter_minutes:30,send_gap_min:6,send_gap_max:12,max_friends_per_run:20,daily_limit:50,rate_limit_cooldown:45,retry_delay:45});
 const chEn=reactive({dingtalk:true,feishu:true,wecom:true,telegram:true,bark:true,email:true});
 const testing=ref(''),newAdminPass=ref(''),isAdmin=computed(()=>user.value.is_admin);
 const channels=[{key:'dingtalk',label:'钉钉',fields:[{key:'DINGTALK_WEBHOOK',placeholder:'Webhook URL'}]},{key:'feishu',label:'飞书',fields:[{key:'FEISHU_WEBHOOK',placeholder:'Webhook URL'}]},{key:'wecom',label:'企业微信',fields:[{key:'WECOM_WEBHOOK',placeholder:'Webhook URL'}]},{key:'telegram',label:'Telegram',fields:[{key:'TELEGRAM_BOT_TOKEN',placeholder:'Bot Token'},{key:'TELEGRAM_CHAT_ID',placeholder:'Chat ID'}]},{key:'bark',label:'Bark',fields:[{key:'BARK_DEVICE_KEY',placeholder:'Device Key'}]},{key:'email',label:'Cloud Mail 邮件',fields:[{key:'RESEND_API_KEY',placeholder:'Resend API Key',adminOnly:true},{key:'RESEND_FROM',placeholder:'发件邮箱',adminOnly:true},{key:'MAIL_TO',placeholder:'收件邮箱'}]}];
-const sysFields=[{key:'schedule_time',label:'定时调度时间',type:'time'},{key:'jitter_minutes',label:'波动分钟数',type:'number'},{key:'send_gap_min',label:'发送间隔(最小)',type:'number'},{key:'send_gap_max',label:'发送间隔(最大)',type:'number'},{key:'max_friends_per_run',label:'每轮最大好友',type:'number'},{key:'daily_limit',label:'每日发送上限',type:'number'},{key:'rate_limit_cooldown',label:'限流冷却(分钟)',type:'number'},{key:'retry_delay',label:'重试延迟(分钟)',type:'number'},{key:'allow_registration',label:'允许注册',type:'bool'},{key:'invite_only',label:'仅接受邀请码注册',type:'bool'}];
+const sysFields=[{key:'schedule_time',label:'定时调度时间',type:'time'},{key:'jitter_minutes',label:'波动分钟数',type:'number'},{key:'send_gap_min',label:'发送间隔(最小)',type:'number'},{key:'send_gap_max',label:'发送间隔(最大)',type:'number'},{key:'max_friends_per_run',label:'每轮最大好友',type:'number'},{key:'daily_limit',label:'每日发送上限',type:'number'},{key:'rate_limit_cooldown',label:'限流冷却(分钟)',type:'number'},{key:'retry_delay',label:'重试延迟(分钟)',type:'number'}];
 const testChannel=async(ch)=>{testing.value=ch.key;try{const r=await api.post('/notify/test',{channel:ch.key});if(r.data?.success)showToast(ch.label+' 测试通知已发送')}catch(e){}finally{testing.value=''}};
 const saveNotifications=()=>{const d={};Object.keys(settings).forEach(k=>{d[k]=settings[k]});emit('save',d)};
 const saveSystem=()=>{const d={};Object.keys(sys).forEach(k=>{d[k]=sys[k]});emit('save',d)};
+const regControl=reactive({allow_registration:true,invite_only:false});
+const saveRegControl=()=>{emit('save',{allow_registration:regControl.allow_registration,invite_only:regControl.invite_only})};
 const changePass=async()=>{if(!newAdminPass.value)return;try{const r=await api.post('/settings',{admin_pass:newAdminPass.value});if(r.data?.success){showToast('密码已修改');newAdminPass.value=''}}catch(e){}};
 const groups=ref([]),allUsers=ref([]),groupUsers=ref([]),selectedGroup=ref(0),newGroupName=ref(''),addUserId=ref(0),showEdit=ref(false),editName=ref(''),editingId=ref(0);
 const currentGroupName=computed(()=>{const g=groups.value.find(g=>g.id===selectedGroup.value);return g?g.name:''});
@@ -285,9 +299,9 @@ const inviteCodes=ref([]),inviteCount=ref(5),generatedCodes=ref([]);
 const loadInviteCodes=async()=>{try{const r=await api.get('/admin/invite-codes');inviteCodes.value=r.data||[]}catch(e){}};
 const generateInviteCodes=async()=>{try{const r=await api.post('/admin/invite-codes',{count:inviteCount.value||1});generatedCodes.value=r.data?.codes||[];loadInviteCodes()}catch(e){}};
 const deleteInviteCode=async(id)=>{if(!confirm('确认删除？'))return;try{await api.del('/admin/invite-codes/'+id);loadInviteCodes()}catch(e){}};
-const load=async()=>{try{const r=await api.get('/settings');if(r.data?.notifications){Object.keys(settings).forEach(k=>{if(r.data.notifications[k]!==undefined)settings[k]=r.data.notifications[k]})};if(r.data?.system){Object.keys(sys).forEach(k=>{if(r.data.system[k]!==undefined)sys[k]=r.data.system[k]})}}catch(e){}};
+const load=async()=>{try{const r=await api.get('/settings');if(r.data?.notifications){Object.keys(settings).forEach(k=>{if(r.data.notifications[k]!==undefined)settings[k]=r.data.notifications[k]})};if(r.data?.system){Object.keys(sys).forEach(k=>{if(r.data.system[k]!==undefined)sys[k]=r.data.system[k]});if(r.data.system.allow_registration!==undefined)regControl.allow_registration=r.data.system.allow_registration;if(r.data.system.invite_only!==undefined)regControl.invite_only=r.data.system.invite_only}}catch(e){}};
 onMounted(()=>{if(isAdmin.value){loadGroups();loadAllUsers();loadInviteCodes()}load()});
-return{settings,sys,chEn,channels,sysFields,testing,newAdminPass,isAdmin,testChannel,saveNotifications,saveSystem,changePass,groups,allUsers,groupUsers,selectedGroup,newGroupName,addUserId,showEdit,editName,editingId,currentGroupName,selectGroup,createGroup,deleteGroup,editGroup,saveEdit,addUserToGroup,removeUser,
+return{settings,sys,regControl,chEn,channels,sysFields,testing,newAdminPass,isAdmin,testChannel,saveNotifications,saveSystem,saveRegControl,changePass,groups,allUsers,groupUsers,selectedGroup,newGroupName,addUserId,showEdit,editName,editingId,currentGroupName,selectGroup,createGroup,deleteGroup,editGroup,saveEdit,addUserToGroup,removeUser,
 inviteCodes,inviteCount,generatedCodes,loadInviteCodes,generateInviteCodes,deleteInviteCode}}});
 
 app.mount('#app')

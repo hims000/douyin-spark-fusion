@@ -174,6 +174,9 @@ async def init_db() -> None:
         "INSERT OR IGNORE INTO users(username, password_hash, is_admin) VALUES(?,?,1)",
         ("admin", admin_hash),
     )
+    await db.execute(
+        "INSERT OR IGNORE INTO groups(name) VALUES(?)", ("default",)
+    )
     await db.commit()
     await db.close()
 
@@ -209,6 +212,13 @@ async def set_setting(key: str, value: str) -> None:
     )
     await db.commit()
     await db.close()
+
+
+async def get_default_group_id() -> int:
+    db = await get_db()
+    row = await db.execute_fetchall("SELECT id FROM groups WHERE name='default' LIMIT 1")
+    await db.close()
+    return row[0]["id"] if row else 0
 
 
 def parse_auth_json(value: str, label: str) -> Any:
