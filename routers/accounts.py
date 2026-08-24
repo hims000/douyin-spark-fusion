@@ -310,7 +310,7 @@ async def get_qr_code():
     page.on("response", capture)
 
     try:
-        await page.goto("https://www.douyin.com/", wait_until="load", timeout=60000)
+        await page.goto("https://creator.douyin.com/", wait_until="load", timeout=60000)
         await page.wait_for_timeout(5000)
 
         await page.evaluate(
