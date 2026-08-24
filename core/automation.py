@@ -839,9 +839,31 @@ def fetch_chat_contacts(
         return result
 
     try:
-        browser, context, page = launch_browser(
-            cookies=cookies, storage_state=storage_state
+        pw = sync_playwright().start()
+        browser = pw.chromium.launch(
+            headless=settings.headless,
+            args=[
+                "--no-sandbox", "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage", "--disable-gpu",
+            ],
         )
+        if storage_state:
+            if isinstance(storage_state, (dict, str)):
+                context = browser.new_context(
+                    storage_state=storage_state,
+                    viewport={"width": 1366, "height": 768},
+                )
+            else:
+                context = browser.new_context(
+                    viewport={"width": 1366, "height": 768},
+                )
+        else:
+            context = browser.new_context(
+                viewport={"width": 1366, "height": 768},
+            )
+            if cookies:
+                context.add_cookies(_normalize_cookies(cookies))
+        page = context.new_page()
 
         goto_ok = False
         for attempt in range(3):
@@ -932,6 +954,14 @@ def fetch_chat_contacts(
                 context.close()
             except Exception:
                 pass
+        try:
+            browser.close()
+        except Exception:
+            pass
+        try:
+            pw.stop()
+        except Exception:
+            pass
     return result
 
 
