@@ -220,7 +220,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Douyin Spark Fusion API",
     description="Self-hosted douyin spark automation service. Automatically send messages to maintain friendship streaks on Douyin.",
-    version="1.0.0",
+    version="1.0.3",
     openapi_tags=[
         {"name": "health", "description": "Health check endpoints"},
         {"name": "auth", "description": "User authentication (register/login/token)"},
@@ -300,7 +300,7 @@ async def health_check():
     return {
         "status": "ok",
         "timestamp": datetime.now().astimezone().isoformat(),
-        "version": "1.0.0",
+        "version": "1.0.3",
         "db": db_status,
         "playwright": playwright_status,
         "memory_mb": round(get_memory_usage(), 1),
