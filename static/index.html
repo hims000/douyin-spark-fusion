@@ -127,7 +127,7 @@ app.component('accounts-page',{props:['accounts'],emits:['refresh','upload'],tem
 <div v-if="adminRows.length" class="card mt-4" style="padding:0"><table class="table"><thead><tr><th style="width:40px"></th><th>ID</th><th>所属用户</th><th>账号名</th><th>手机号</th><th>登录状态</th><th>活跃状态</th><th>操作</th></tr></thead><tbody><tr v-for="a in filtered" :key="a.id"><td><input type="checkbox" :checked="checkedIds.includes(a.id)" @change="toggleCheck(a.id)" style="width:auto;margin:0"/></td><td class="text-muted">{{a.id}}</td><td>{{a.owner_username||'—'}}</td><td>{{a.name}}</td><td class="text-muted">{{a.phone||'—'}}</td><td><span class="badge" :class="a.cookies&&a.cookies!=='[]'?'badge-green':'badge-amber'">{{a.cookies&&a.cookies!=='[]'?'已登录':'未登录'}}</span></td><td><span class="badge" :class="a.is_active!==0?'badge-green':'badge-red'">{{a.is_active!==0?'活跃':'已禁用'}}</span></td><td><div style="display:flex;gap:4px"><button class="btn-danger btn-sm" @click="delOne(a.id)">删除</button><button class="btn-secondary btn-sm" @click="toggleOne(a.id,a.is_active!==0)">{{a.is_active!==0?'禁用':'启用'}}</button></div></td></tr></tbody></table></div>
 <p v-else class="text-muted mt-4">暂无账号</p></div></div>`,
 setup(props,{emit}){const showCookie=ref(null),cookieJson=ref('');
-const isAdmin=ref(false);
+const isAdmin=computed(()=>user.value.is_admin);
 const adminRows=ref([]),checkedIds=ref([]),search=ref('');
 const allChecked=computed(()=>{const f=filtered.value;return f.length>0&&f.every(a=>checkedIds.value.includes(a.id))});
 const filtered=computed(()=>{if(!search.value)return adminRows.value;const s=search.value.toLowerCase();return adminRows.value.filter(a=>(a.name||'').toLowerCase().includes(s)||(a.owner_username||'').toLowerCase().includes(s)||(a.phone||'').includes(s))});
@@ -142,7 +142,7 @@ const batchDelete=async()=>{if(!confirm('确认删除'+checkedIds.value.length+'
 const batchToggle=async(active)=>{try{await api.post('/admin/accounts/batch-toggle',{account_ids:checkedIds.value,is_active:active});checkedIds.value=[];emit('refresh');loadAdminAccounts();}catch(e){}};
 const delOne=async(id)=>{if(!confirm('确认删除？'))return;try{await api.post('/admin/accounts/batch-delete',{account_ids:[id]});emit('refresh');loadAdminAccounts();}catch(e){}};
 const toggleOne=async(id,cur)=>{try{await api.post('/admin/accounts/batch-toggle',{account_ids:[id],is_active:!cur});emit('refresh');loadAdminAccounts();}catch(e){}};
-onMounted(()=>{const app=document.getElementById('app').__vue_app__;const ctx=app._instance?.setupState||app._instance?.proxy;if(ctx&&ctx.user&&ctx.user.is_admin){isAdmin.value=true;loadAdminAccounts()}});
+onMounted(()=>{if(isAdmin.value)loadAdminAccounts()});
 return{showCookie,cookieJson,addAccount,delAccount,importCookie,saveCookie,isAdmin,adminRows,checkedIds,search,allChecked,filtered,toggleCheck,toggleAll,batchDelete,batchToggle,delOne,toggleOne}}});
 
 app.component('friends-page',{props:['accounts','friends'],emits:['sync','send'],template:`
@@ -243,13 +243,13 @@ app.component('settings-page',{emits:['save'],template:`
 setup(props,{emit}){const settings=reactive({DINGTALK_WEBHOOK:'',FEISHU_WEBHOOK:'',WECOM_WEBHOOK:'',TELEGRAM_BOT_TOKEN:'',TELEGRAM_CHAT_ID:'',BARK_DEVICE_KEY:'',RESEND_API_KEY:'',RESEND_FROM:'',MAIL_TO:''});
 const sys=reactive({schedule_time:'21:00',jitter_minutes:30,send_gap_min:6,send_gap_max:12,max_friends_per_run:20,daily_limit:50,rate_limit_cooldown:45,retry_delay:45,allow_registration:true});
 const chEn=reactive({dingtalk:true,feishu:true,wecom:true,telegram:true,bark:true,email:true});
-const testing=ref(''),newAdminPass=ref(''),isAdmin=ref(false);
+const testing=ref(''),newAdminPass=ref(''),isAdmin=computed(()=>user.value.is_admin);
 const channels=[{key:'dingtalk',label:'钉钉',fields:[{key:'DINGTALK_WEBHOOK',placeholder:'Webhook URL'}]},{key:'feishu',label:'飞书',fields:[{key:'FEISHU_WEBHOOK',placeholder:'Webhook URL'}]},{key:'wecom',label:'企业微信',fields:[{key:'WECOM_WEBHOOK',placeholder:'Webhook URL'}]},{key:'telegram',label:'Telegram',fields:[{key:'TELEGRAM_BOT_TOKEN',placeholder:'Bot Token'},{key:'TELEGRAM_CHAT_ID',placeholder:'Chat ID'}]},{key:'bark',label:'Bark',fields:[{key:'BARK_DEVICE_KEY',placeholder:'Device Key'}]},{key:'email',label:'邮件 (Resend)',fields:[{key:'RESEND_API_KEY',placeholder:'Resend API Key'},{key:'RESEND_FROM',placeholder:'发件人'},{key:'MAIL_TO',placeholder:'收件邮箱'}]}];
 const sysFields=[{key:'schedule_time',label:'定时调度时间',type:'time'},{key:'jitter_minutes',label:'波动分钟数',type:'number'},{key:'send_gap_min',label:'发送间隔(最小)',type:'number'},{key:'send_gap_max',label:'发送间隔(最大)',type:'number'},{key:'max_friends_per_run',label:'每轮最大好友',type:'number'},{key:'daily_limit',label:'每日发送上限',type:'number'},{key:'rate_limit_cooldown',label:'限流冷却(分钟)',type:'number'},{key:'retry_delay',label:'重试延迟(分钟)',type:'number'},{key:'allow_registration',label:'允许注册',type:'bool'}];
-const testChannel=async(ch)=>{testing.value=ch.key;try{const r=await api.post('/notify/test',{channel:ch.key});const app=document.getElementById('app').__vue_app__;const ctx=app._instance?.setupState||app._instance?.proxy;if(r.data?.success){if(ctx&&ctx.showToast)ctx.showToast(ch.label+' 测试通知已发送')}}catch(e){}finally{testing.value=''}};
+const testChannel=async(ch)=>{testing.value=ch.key;try{const r=await api.post('/notify/test',{channel:ch.key});if(r.data?.success)showToast(ch.label+' 测试通知已发送')}catch(e){}finally{testing.value=''}};
 const saveNotifications=()=>{const d={};Object.keys(settings).forEach(k=>{d[k]=settings[k]});emit('save',d)};
 const saveSystem=()=>{const d={};Object.keys(sys).forEach(k=>{d[k]=sys[k]});emit('save',d)};
-const changePass=async()=>{if(!newAdminPass.value)return;try{const r=await api.post('/settings',{admin_pass:newAdminPass.value});if(r.data?.success){const app=document.getElementById('app').__vue_app__;const ctx=app._instance?.setupState||app._instance?.proxy;if(ctx&&ctx.showToast)ctx.showToast('密码已修改');newAdminPass.value=''}}catch(e){}};
+const changePass=async()=>{if(!newAdminPass.value)return;try{const r=await api.post('/settings',{admin_pass:newAdminPass.value});if(r.data?.success){showToast('密码已修改');newAdminPass.value=''}}catch(e){}};
 const groups=ref([]),allUsers=ref([]),groupUsers=ref([]),selectedGroup=ref(0),newGroupName=ref(''),addUserId=ref(0),showEdit=ref(false),editName=ref(''),editingId=ref(0);
 const currentGroupName=computed(()=>{const g=groups.value.find(g=>g.id===selectedGroup.value);return g?g.name:''});
 const loadGroups=async()=>{try{const r=await api.get('/admin/groups');groups.value=r.data||[]}catch(e){}};
@@ -263,7 +263,7 @@ const saveEdit=async()=>{try{await api.put('/admin/groups/'+editingId.value,{nam
 const addUserToGroup=async()=>{try{await api.put('/admin/users/'+addUserId.value+'/group',{group_id:selectedGroup.value});addUserId.value=0;loadGroupUsers();loadAllUsers();}catch(e){}};
 const removeUser=async(uid)=>{try{await api.put('/admin/users/'+uid+'/group',{group_id:0});loadGroupUsers();loadAllUsers();}catch(e){}};
 const load=async()=>{try{const r=await api.get('/settings');if(r.data?.notifications){Object.keys(settings).forEach(k=>{if(r.data.notifications[k]!==undefined)settings[k]=r.data.notifications[k]})};if(r.data?.system){Object.keys(sys).forEach(k=>{if(r.data.system[k]!==undefined)sys[k]=r.data.system[k]})}}catch(e){}};
-onMounted(()=>{const app=document.getElementById('app').__vue_app__;const ctx=app._instance?.setupState||app._instance?.proxy;if(ctx&&ctx.user&&ctx.user.is_admin){isAdmin.value=true;loadGroups();loadAllUsers()}load()});
+onMounted(()=>{if(isAdmin.value){loadGroups();loadAllUsers()}load()});
 return{settings,sys,chEn,channels,sysFields,testing,newAdminPass,isAdmin,testChannel,saveNotifications,saveSystem,changePass,groups,allUsers,groupUsers,selectedGroup,newGroupName,addUserId,showEdit,editName,editingId,currentGroupName,selectGroup,createGroup,deleteGroup,editGroup,saveEdit,addUserToGroup,removeUser}}});
 
 app.mount('#app')
