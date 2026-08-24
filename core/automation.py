@@ -7,6 +7,7 @@ import logging
 import os
 import re
 import secrets
+import threading
 import time
 from datetime import datetime
 from typing import Any
@@ -25,22 +26,22 @@ logger = logging.getLogger("fusion-spark")
 
 _browser_pool: dict[str, Any] = {}
 _browser_cache: dict[str, tuple] = {}
+_browser_cache_lock = threading.Lock()
 
 def _get_cached_browser(cookies_hash: str):
-    if cookies_hash in _browser_cache:
-        return _browser_cache[cookies_hash]
-    return None
-
+    with _browser_cache_lock:
+        return _browser_cache.get(cookies_hash)
 
 def _set_cached_browser(cookies_hash: str, playwright, browser, context):
-    if len(_browser_cache) >= 3:
-        oldest = next(iter(_browser_cache))
-        pw, br, ctx = _browser_cache.pop(oldest)
-        try:
-            ctx.close()
-        except Exception:
-            pass
-    _browser_cache[cookies_hash] = (playwright, browser, context)
+    with _browser_cache_lock:
+        if len(_browser_cache) >= 3:
+            oldest = next(iter(_browser_cache))
+            pw, br, ctx = _browser_cache.pop(oldest)
+            try:
+                ctx.close()
+            except Exception:
+                pass
+        _browser_cache[cookies_hash] = (playwright, browser, context)
 
 
 def _compute_cookies_hash(cookies: list[dict[str, Any]]) -> str:
@@ -177,19 +178,31 @@ def _now() -> str:
     return datetime.now().astimezone().isoformat(timespec="seconds")
 
 
-_sent_today: dict[str, set[str]] = {}
-
-
 def _already_sent_today(friend_name: str) -> bool:
-    today = datetime.now().strftime("%Y-%m-%d")
-    return friend_name in _sent_today.get(today, set())
+    import asyncio as _asyncio
+
+    def _check():
+        from .models import get_db as _get_db
+
+        async def _inner():
+            db = await _get_db()
+            rows = await db.execute_fetchall(
+                "SELECT id FROM history WHERE friend_name=? AND date(created_at)=date('now') AND status='success' LIMIT 1",
+                (friend_name,),
+            )
+            await db.close()
+            return len(rows) > 0
+
+        return _asyncio.run(_inner())
+
+    try:
+        return _check()
+    except Exception:
+        return False
 
 
 def _mark_sent_today(friend_name: str):
-    today = datetime.now().strftime("%Y-%m-%d")
-    if today not in _sent_today:
-        _sent_today[today] = set()
-    _sent_today[today].add(friend_name)
+    pass
 
 
 def generate_ai_message(friend_name: str, spark_days: int = 0, api_key: str | None = None, model: str = "gpt-4o-mini") -> str:
@@ -728,11 +741,10 @@ def get_browser() -> Browser:
     if "browser" in _browser_pool and _browser_pool["browser"].is_connected():
         return _browser_pool["browser"]
 
-    if "playwright" in _browser_pool:
-        try:
-            _browser_pool["playwright"].stop()
-        except Exception:
-            pass
+    try:
+        release_browser()
+    except Exception:
+        pass
 
     args = [
         "--no-sandbox",

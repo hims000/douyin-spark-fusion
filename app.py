@@ -42,10 +42,24 @@ def _check_rate_limit(key: str, max_requests: int = 120, window: int = 60) -> bo
     return False
 
 
+def _cleanup_rate_limit_store():
+    now = time.time()
+    stale = [k for k, v in _rate_limit_store.items() if not v or all(now - t > 120 for t in v)]
+    for k in stale:
+        del _rate_limit_store[k]
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+    from apscheduler.schedulers.background import BackgroundScheduler
+    from apscheduler.triggers.interval import IntervalTrigger
+
+    _cleanup_scheduler = BackgroundScheduler(timezone="Asia/Shanghai")
+    _cleanup_scheduler.add_job(_cleanup_rate_limit_store, IntervalTrigger(minutes=5), id="rate_limit_cleanup")
+    _cleanup_scheduler.start()
     yield
+    _cleanup_scheduler.shutdown(wait=False)
 
 
 app = FastAPI(
