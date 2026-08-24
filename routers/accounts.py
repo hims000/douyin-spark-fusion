@@ -124,8 +124,12 @@ async def upload_cookies(
     for idx, cookie in enumerate(cookies_raw):
         if not isinstance(cookie, dict):
             raise app_error("ACCT_002", 400, f"Cookie[{idx}] 必须是对象")
-        if not cookie.get("name") or not cookie.get("value"):
-            raise app_error("ACCT_002", 400, f"Cookie[{idx}] 缺少 name 或 value")
+        if not cookie.get("domain"):
+            raise app_error("ACCT_002", 400, f"Cookie[{idx}] 缺少 domain")
+        name = cookie.get("name", "")
+        value = cookie.get("value", "")
+        if name == "" and value == "":
+            continue
         validated.append(cookie)
     await db.execute(
         "UPDATE accounts SET cookies=?, updated_at=? WHERE id=?",
