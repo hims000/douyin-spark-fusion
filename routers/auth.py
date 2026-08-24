@@ -13,12 +13,6 @@ from core.models import get_db, hash_password, verify_password
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 security = HTTPBearer(auto_error=False)
 
-_sessions: dict[str, dict[str, Any]] = {}
-
-
-def get_sessions() -> dict[str, dict[str, Any]]:
-    return _sessions
-
 
 class LoginRequest(BaseModel):
     username: str
@@ -46,12 +40,24 @@ def app_error(code: str, status_code: int, message: str) -> HTTPException:
     )
 
 
+async def _session_lookup(token: str) -> dict[str, Any]:
+    if not token:
+        return {}
+    db = await get_db()
+    row = await db.execute_fetchall("SELECT * FROM sessions WHERE token=?", (token,))
+    await db.close()
+    if row:
+        s = dict(row[0])
+        return {"id": s["user_id"], "username": s["username"], "is_admin": bool(s["is_admin"])}
+    return {}
+
+
 async def get_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> dict[str, Any]:
     if not credentials:
         return {}
-    return _sessions.get(credentials.credentials, {})
+    return await _session_lookup(credentials.credentials)
 
 
 async def require_user(user: dict[str, Any] = Depends(get_user)) -> dict[str, Any]:
@@ -66,6 +72,19 @@ async def require_admin(user: dict[str, Any] = Depends(require_user)) -> dict[st
     return user
 
 
+async def _create_session(user_id: int, username: str, is_admin: bool) -> tuple[str, dict[str, Any]]:
+    token = secrets.token_hex(32)
+    user_data = {"id": user_id, "username": username, "is_admin": is_admin}
+    db = await get_db()
+    await db.execute(
+        "INSERT INTO sessions(token, user_id, username, is_admin) VALUES(?,?,?,?)",
+        (token, user_id, username, 1 if is_admin else 0),
+    )
+    await db.commit()
+    await db.close()
+    return token, user_data
+
+
 @router.post("/login", summary="User login")
 async def login(req: LoginRequest):
     db = await get_db()
@@ -78,13 +97,8 @@ async def login(req: LoginRequest):
     user = dict(row[0])
     if not verify_password(req.password, user["password_hash"]):
         raise app_error("AUTH_001", 401, "用户名或密码错误")
-    token = secrets.token_hex(32)
-    _sessions[token] = {
-        "id": user["id"],
-        "username": user["username"],
-        "is_admin": bool(user["is_admin"]),
-    }
-    return {"token": token, "user": _sessions[token]}
+    token, user_data = await _create_session(user["id"], user["username"], bool(user["is_admin"]))
+    return {"token": token, "user": user_data}
 
 
 @router.post("/register", summary="User registration")
@@ -107,9 +121,8 @@ async def register(req: RegisterRequest):
     await db.commit()
     user_id = (await db.execute_fetchall("SELECT last_insert_rowid() as id"))[0]["id"]
     await db.close()
-    token = secrets.token_hex(32)
-    _sessions[token] = {"id": user_id, "username": username, "is_admin": False}
-    return {"token": token, "user": _sessions[token]}
+    token, user_data = await _create_session(user_id, username, False)
+    return {"token": token, "user": user_data}
 
 
 @router.get("/me", summary="Get current user")
@@ -119,6 +132,9 @@ async def me(user: dict[str, Any] = Depends(require_user)):
 
 @router.post("/logout", summary="User logout")
 async def logout(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    if credentials and credentials.credentials in _sessions:
-        del _sessions[credentials.credentials]
+    if credentials and credentials.credentials:
+        db = await get_db()
+        await db.execute("DELETE FROM sessions WHERE token=?", (credentials.credentials,))
+        await db.commit()
+        await db.close()
     return {"success": True}
