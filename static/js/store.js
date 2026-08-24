@@ -1,4 +1,4 @@
-const {createApp,ref,reactive,computed,onMounted,watch,nextTick} = Vue;
+const {createApp,ref,reactive,computed,onMounted,onErrorCaptured,watch,nextTick} = Vue;
 const page=ref('dashboard'),user=ref({}),theme=ref(localStorage.getItem('theme')||'light');
 const toast=reactive({show:false,msg:'',type:'success'});
 const stats=reactive({accounts:0,tasks:0,friends:0,today_sent:0}),logList=ref([]),accountsList=ref([]),friendList=ref([]),taskList=ref([]),historyList=ref([]);
