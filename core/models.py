@@ -149,7 +149,7 @@ async def init_db() -> None:
 
         CREATE TABLE IF NOT EXISTS groups (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
+            name TEXT NOT NULL UNIQUE,
             created_at TEXT DEFAULT (datetime('now'))
         );
 
@@ -174,9 +174,9 @@ async def init_db() -> None:
         "INSERT OR IGNORE INTO users(username, password_hash, is_admin) VALUES(?,?,1)",
         ("admin", admin_hash),
     )
-    await db.execute(
-        "INSERT OR IGNORE INTO groups(name) VALUES(?)", ("default",)
-    )
+    existing = await db.execute_fetchall("SELECT id FROM groups WHERE name='default' LIMIT 1")
+    if not existing:
+        await db.execute("INSERT INTO groups(name) VALUES(?)", ("default",))
     await db.commit()
     await db.close()
 
