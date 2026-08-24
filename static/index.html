@@ -5,94 +5,11 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Douyin Spark Fusion</title>
 <script src="/static/vue.js"></script>
-<style>
-:root{--bg:#fafafa;--bg-card:#fff;--bg-hover:#f5f5f5;--border:#e5e5e5;--text:#0a0a0a;--text-muted:#737373;--accent:#0a0a0a;--green:#16a34a;--red:#dc2626;--amber:#d97706;--radius:8px}
-[data-theme="dark"]{--bg:#0a0a0a;--bg-card:#1a1a1a;--bg-hover:#262626;--border:#333;--text:#fafafa;--text-muted:#a3a3a3;--accent:#fafafa}
-*{margin:0;padding:0;box-sizing:border-box}
-body{background:var(--bg);color:var(--text);font-family:Inter,-apple-system,sans-serif;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
-::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
-input,button,textarea,select{font-family:inherit;font-size:inherit;color:inherit}
-input,select{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;outline:none;transition:border-color .15s,box-shadow .15s}
-input:focus,select:focus{border-color:var(--text);box-shadow:0 0 0 3px rgba(0,0,0,.06)}
-button{cursor:pointer;border:none;border-radius:var(--radius);padding:8px 16px;font-weight:500;font-size:13px;transition:all .15s}
-button:active{transform:scale(.97)}
-button:disabled{opacity:.5;cursor:not-allowed}
-.btn-primary{background:var(--text);color:var(--bg)}.btn-primary:hover{background:var(--text-muted)}
-.btn-secondary{background:var(--bg-card);color:var(--text);border:1px solid var(--border)}.btn-secondary:hover{background:var(--bg-hover)}
-.btn-danger{background:transparent;color:var(--red);border:1px solid rgba(220,38,38,.3)}.btn-danger:hover{background:var(--red);color:#fff}
-.btn-sm{padding:4px 12px;font-size:12px}
-.card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
-.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500}
-.badge-green{background:rgba(22,163,74,.08);color:var(--green)}
-.badge-red{background:rgba(220,38,38,.08);color:var(--red)}
-.badge-amber{background:rgba(217,119,6,.08);color:var(--amber)}
-.table{width:100%;border-collapse:collapse}
-.table th,.table td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--border)}
-.table th{color:var(--text-muted);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.05em}
-.table tbody tr{transition:background .1s}.table tbody tr:hover td{background:var(--bg-hover)}
-@keyframes fadeInUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-.stagger-item{animation:fadeInUp .3s ease both}
-.app-shell{display:flex;min-height:100vh}
-.sidebar{width:200px;min-height:100vh;background:var(--bg-card);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:0 12px;flex-shrink:0}
-.logo{padding:20px 12px 16px;font-size:16px;font-weight:600;letter-spacing:-.02em;cursor:pointer;user-select:none}
-.nav-links{flex:1;display:flex;flex-direction:column;gap:1px}
-.nav-item{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;color:var(--text-muted);text-decoration:none;font-size:13px;transition:all .15s;cursor:pointer}
-.nav-item:hover{background:var(--bg-hover);color:var(--text)}
-.nav-item.active{background:var(--bg-hover);color:var(--text)}
-.nav-icon{display:flex;align-items:center;flex-shrink:0;opacity:.6}
-.nav-item:hover .nav-icon,.nav-item.active .nav-icon{opacity:1}
-.nav-icon svg{width:16px;height:16px}
-.sidebar-footer{padding:12px 0;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:2px}
-.user-info{padding:4px 12px 8px;display:flex;flex-direction:column}
-.user-role{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em}
-.user-name{font-size:13px}
-.main-content{flex:1;padding:32px 40px;overflow-y:auto;max-width:1024px}
-.page-title{font-size:18px;font-weight:600;letter-spacing:-.02em}
-.page-header{display:flex;justify-content:space-between;align-items:center}
-.header-actions{display:flex;gap:8px}
-.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:24px}
-.stat-card{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:20px;animation:fadeInUp .4s ease both;transition:transform .2s,box-shadow .2s,border-color .2s}
-.stat-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.06);border-color:#d4d4d4}
-.stat-value{font-size:28px;font-weight:600;letter-spacing:-.02em}
-.stat-label{color:var(--text-muted);font-size:13px;margin-top:4px}
-.card-title{font-size:14px;font-weight:600}
-.mt-2{margin-top:8px}.mt-3{margin-top:12px}.mt-4{margin-top:16px}.mt-6{margin-top:24px}
-.mb-4{margin-bottom:16px}
-.text-muted{color:var(--text-muted)}.text-green{color:var(--green)}.text-red{color:var(--red)}
-.friend-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
-.friend-card{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;transition:transform .15s,box-shadow .15s,border-color .15s}
-.friend-card:hover{transform:translateY(-1px);box-shadow:0 2px 8px rgba(0,0,0,.05);border-color:#d4d4d4}
-.friend-row{display:flex;justify-content:space-between;align-items:center}
-.friend-name{font-weight:500;font-size:14px}
-.friend-meta{display:flex;align-items:center;gap:8px;flex-shrink:0}
-.form-grid{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.cron-picker{display:flex;gap:6px;align-items:center}
-.time-input{width:50px;text-align:center}
-.full-width{flex:1;min-width:200px}
-.friend-header{display:flex;gap:8px;align-items:center;margin-bottom:8px}
-.friend-item{display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:13px;transition:all .15s}
-.friend-item.checked{background:var(--bg-hover);border-color:var(--text)}
-.friend-item input[type=checkbox]{width:auto;margin:0}
-.result{font-size:12px;margin-top:4px}
-.login-page{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);position:relative;overflow:hidden}
-.login-card{width:320px;position:relative;animation:cardIn .5s cubic-bezier(.16,1,.3,1) both}
-@keyframes cardIn{from{opacity:0;transform:translateY(16px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
-.brand{font-size:32px;font-weight:600;letter-spacing:-.04em;text-align:center;margin-bottom:36px}
-.form{display:flex;flex-direction:column;gap:10px}
-.form input{width:100%;padding:10px 14px}
-.form button{width:100%;padding:10px;min-height:40px;display:flex;align-items:center;justify-content:center}
-.toggle{text-align:center;margin-top:24px;font-size:13px}
-.toggle a{color:var(--text-muted);cursor:pointer;transition:color .15s}
-.toggle a:hover{color:var(--text)}
-.error{text-align:center;color:var(--red);margin-top:16px;font-size:13px}
-.theme-toggle{position:fixed;bottom:20px;right:20px;width:36px;height:36px;border-radius:50%;background:var(--bg-card);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;z-index:100;transition:all .15s}
-.theme-toggle:hover{transform:scale(1.1)}
-.toast{position:fixed;top:20px;right:20px;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:500;z-index:200;animation:slideIn .3s ease;box-shadow:0 4px 12px rgba(0,0,0,.1)}
-.toast-success{background:var(--green);color:#fff}
-.toast-error{background:var(--red);color:#fff}
-@keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
-@media(max-width:768px){.app-shell{flex-direction:column}.sidebar{width:100%;min-height:auto;flex-direction:row;align-items:center;padding:0 8px;border-right:none;border-bottom:1px solid var(--border);overflow-x:auto}.logo{padding:12px 8px;font-size:14px;flex-shrink:0}.nav-links{flex-direction:row;flex:1;gap:0}.nav-item{padding:10px 10px;font-size:12px;gap:4px;white-space:nowrap}.nav-label{display:none}.nav-icon{opacity:1}.sidebar-footer{padding:0;border-top:none;flex-shrink:0;flex-direction:row}.sidebar-footer .nav-label{display:none}.user-info{display:none}.main-content{padding:16px;max-width:100%}.stats-grid{grid-template-columns:repeat(2,1fr);gap:8px}.friend-grid{grid-template-columns:1fr}}
-</style>
+<link rel="stylesheet" href="/static/css/variables.css">
+<link rel="stylesheet" href="/static/css/animations.css">
+<link rel="stylesheet" href="/static/css/layout.css">
+<link rel="stylesheet" href="/static/css/components.css">
+<link rel="stylesheet" href="/static/css/login.css">
 </head>
 <body>
 <div id="app">
@@ -158,37 +75,10 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <button class="theme-toggle" @click="toggleTheme" :title="theme==='light'?'暗色模式':'亮色模式'">{{ theme==='light' ? '🌙' : '☀️' }}</button>
 <div v-if="toast.show" class="toast" :class="'toast-'+toast.type">{{ toast.msg }}</div>
 </div>
+<script src="/static/js/api.js"></script>
+<script src="/static/js/store.js"></script>
 <script>
-const API = '/api';
-const token = () => localStorage.getItem('token') || '';
-const headers = () => ({'Content-Type':'application/json',Authorization:'Bearer '+token()});
-const api = {get:url=>fetch(API+url,{headers:headers()}).then(r=>r.json().then(d=>({status:r.status,data:d}))),
-post:(url,body)=>fetch(API+url,{method:'POST',headers:headers(),body:JSON.stringify(body)}).then(r=>r.json().then(d=>({status:r.status,data:d}))),
-put:(url,body)=>fetch(API+url,{method:'PUT',headers:headers(),body:JSON.stringify(body)}).then(r=>r.json().then(d=>({status:r.status,data:d}))),
-del:url=>fetch(API+url,{method:'DELETE',headers:headers()}).then(r=>r.json().then(d=>({status:r.status,data:d})))};
-
-const {createApp,ref,reactive,computed,onMounted,watch,nextTick} = Vue;
 const app = createApp({setup(){
-const page=ref('dashboard'),user=ref({}),theme=ref(localStorage.getItem('theme')||'light'),toast=reactive({show:false,msg:'',type:'success'});
-const stats=reactive({accounts:0,tasks:0,friends:0,today_sent:0}),logList=ref([]),accountsList=ref([]),friendList=ref([]),taskList=ref([]),historyList=ref([]);
-const isLoginPage=computed(()=>!user.value.username);
-const showToast=(msg,type='success')=>{toast.show=true;toast.msg=msg;toast.type=type;setTimeout(()=>toast.show=false,3000)};
-const toggleTheme=()=>{theme.value=theme.value==='light'?'dark':'light';localStorage.setItem('theme',theme.value);document.documentElement.setAttribute('data-theme',theme.value)};
-const logout=()=>{localStorage.removeItem('token');localStorage.removeItem('user');user.value={};page.value='dashboard'};
-const onLogin=(u)=>{user.value=u;page.value='dashboard';loadStats();loadAccounts()};
-const loadStats=async()=>{try{const r=await api.get('/stats');Object.assign(stats,r.data);const l=await api.get('/logs?limit=20');logList.value=l.data||[]}catch(e){}};
-const loadAccounts=async()=>{try{const r=await api.get('/accounts');accountsList.value=r.data||[]}catch(e){}};
-const loadFriends=async(accId)=>{try{const r=await api.get('/friends?account_id='+accId);friendList.value=r.data||[]}catch(e){}};
-const loadTasks=async()=>{try{const r=await api.get('/tasks');taskList.value=r.data||[]}catch(e){}};
-const loadHistory=async(friendName='')=>{try{const r=await api.get('/messages/history?friend_name='+encodeURIComponent(friendName)+'&limit=200');historyList.value=r.data||[]}catch(e){}};
-const uploadCookies=async(accId,cookies)=>{try{await api.post('/accounts/'+accId+'/cookies',{cookies});showToast('Cookie上传成功');loadAccounts()}catch(e){showToast('上传失败','error')}};
-const syncFriends=async(accId)=>{try{await api.post('/friends/sync',{account_id:accId});showToast('同步完成');loadFriends(accId)}catch(e){showToast('同步失败','error')}};
-const sendMessage=async(accId,name,msg)=>{try{const r=await api.post('/messages/send',{account_id:accId,friend_name:name,message:msg||'续火花🔥'});showToast(r.data?.success?'发送成功':'发送失败',r.data?.success?'success':'error')}catch(e){showToast('发送失败','error')}};
-const createTask=async(t)=>{try{await api.post('/tasks',t);showToast('任务创建成功');loadTasks()}catch(e){showToast('创建失败','error')}};
-const deleteTask=async(id)=>{try{await api.del('/tasks/'+id);showToast('已删除');loadTasks()}catch(e){showToast('删除失败','error')}};
-const runTask=async(id)=>{try{await api.post('/tasks/run/'+id);showToast('执行完成');loadTasks()}catch(e){showToast('执行失败','error')}};
-const saveSettings=async(s)=>{try{await api.post('/settings',s);showToast('设置已保存')}catch(e){showToast('保存失败','error')}};
-onMounted(()=>{document.documentElement.setAttribute('data-theme',theme.value);try{const u=JSON.parse(localStorage.getItem('user')||'{}');if(u.username){user.value=u;loadStats();loadAccounts()}}catch(e){}});
 return{page,user,theme,stats,logList,accountsList,friendList,taskList,historyList,isLoginPage,toast,showToast,toggleTheme,logout,onLogin,loadStats,loadAccounts,loadFriends,loadTasks,loadHistory,uploadCookies,syncFriends,sendMessage,createTask,deleteTask,runTask,saveSettings};
 }});
 
@@ -334,7 +224,7 @@ setup(props,{emit}){const settings=reactive({DINGTALK_WEBHOOK:'',FEISHU_WEBHOOK:
 const sys=reactive({schedule_time:'21:00',jitter_minutes:30,send_gap_min:6,send_gap_max:12,max_friends_per_run:20,daily_limit:50,rate_limit_cooldown:45,retry_delay:45,allow_registration:true});
 const chEn=reactive({dingtalk:true,feishu:true,wecom:true,telegram:true,bark:true,email:true});
 const testing=ref(''),newAdminPass=ref('');
-const channels=[{key:'dingtalk',label:'钉钉',fields:[{key:'DINGTALK_WEBHOOK',placeholder:'Webhook URL'}]},{key:'feishu',label:'飞书',fields:[{key:'FEISHU_WEBHOOK',placeholder:'Webhook URL'}]},{key:'wecom',label:'企业微信',fields:[{key:'WECOM_WEBHOOK',placeholder:'Webhook URL'}]},{key:'telegram',label:'Telegram',fields:[{key:'TELEGRAM_BOT_TOKEN',placeholder:'Bot Token'},{key:'TELEGRAM_CHAT_ID',placeholder:'Chat ID'}]},{key:'bark',label:'Bark',fields:[{key:'BARK_DEVICE_KEY',placeholder:'Device Key'}]},{key:'email',label:'邮件',fields:[{key:'SMTP_HOST',placeholder:'SMTP服务器'},{key:'SMTP_USER',placeholder:'SMTP账号'},{key:'SMTP_PASS',placeholder:'SMTP密码'},{key:'MAIL_TO',placeholder:'收件邮箱'}]}];
+const channels=[{key:'dingtalk',label:'钉钉',fields:[{key:'DINGTALK_WEBHOOK',placeholder:'Webhook URL'}]},{key:'feishu',label:'飞书',fields:[{key:'FEISHU_WEBHOOK',placeholder:'Webhook URL'}]},{key:'wecom',label:'企业微信',fields:[{key:'WECOM_WEBHOOK',placeholder:'Webhook URL'}]},{key:'telegram',label:'Telegram',fields:[{key:'TELEGRAM_BOT_TOKEN',placeholder:'Bot Token'},{key:'TELEGRAM_CHAT_ID',placeholder:'Chat ID'}]},{key:'bark',label:'Bark',fields:[{key:'BARK_DEVICE_KEY',placeholder:'Device Key'}]},{key:'email',label:'邮件 (Resend)',fields:[{key:'RESEND_API_KEY',placeholder:'Resend API Key'},{key:'RESEND_FROM',placeholder:'发件人'},{key:'MAIL_TO',placeholder:'收件邮箱'}]}];
 const sysFields=[{key:'schedule_time',label:'定时调度时间',type:'time'},{key:'jitter_minutes',label:'波动分钟数',type:'number'},{key:'send_gap_min',label:'发送间隔(最小)',type:'number'},{key:'send_gap_max',label:'发送间隔(最大)',type:'number'},{key:'max_friends_per_run',label:'每轮最大好友',type:'number'},{key:'daily_limit',label:'每日发送上限',type:'number'},{key:'rate_limit_cooldown',label:'限流冷却(分钟)',type:'number'},{key:'retry_delay',label:'重试延迟(分钟)',type:'number'},{key:'allow_registration',label:'允许注册',type:'bool'}];
 const testChannel=async(ch)=>{testing.value=ch.key;try{const r=await api.post('/notify/test',{channel:ch.key});const app=document.getElementById('app').__vue_app__;const ctx=app._instance?.setupState||app._instance?.proxy;if(r.data?.success){if(ctx&&ctx.showToast)ctx.showToast(ch.label+' 测试通知已发送')}}catch(e){}finally{testing.value=''}};
 const saveNotifications=()=>{const d={};Object.keys(settings).forEach(k=>{d[k]=settings[k]});emit('save',d)};

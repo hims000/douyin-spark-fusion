@@ -1,0 +1,12 @@
+.login-page{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);position:relative;overflow:hidden}
+.login-page::before{content:"";position:absolute;width:600px;height:600px;top:-200px;left:50%;transform:translateX(-50%);background:radial-gradient(circle,rgba(128,128,128,.08) 0%,transparent 70%);pointer-events:none;animation:bgPulse 8s ease-in-out infinite alternate}
+@keyframes bgPulse{0%{transform:translateX(-50%) scale(1)}100%{transform:translateX(-50%) scale(1.1)}}
+.login-card{width:320px;position:relative;animation:cardIn .5s cubic-bezier(.16,1,.3,1) both}
+.brand{font-size:32px;font-weight:600;letter-spacing:-.04em;text-align:center;margin-bottom:36px}
+.form{display:flex;flex-direction:column;gap:10px}
+.form input{width:100%;padding:10px 14px}
+.form button{width:100%;padding:10px;min-height:40px;display:flex;align-items:center;justify-content:center}
+.toggle{text-align:center;margin-top:24px;font-size:13px}
+.toggle a{color:var(--text-muted);cursor:pointer;transition:color .15s}
+.toggle a:hover{color:var(--text)}
+.error{text-align:center;color:var(--red);margin-top:16px;font-size:13px}

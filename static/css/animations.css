@@ -1,0 +1,11 @@
+@keyframes fadeInUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+@keyframes cardIn{from{opacity:0;transform:translateY(16px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes ripple{to{transform:scale(4);opacity:0}}
+.stagger-item{animation:fadeInUp .3s ease both}
+.skeleton{background:linear-gradient(90deg,var(--bg-hover) 25%,var(--bg-card) 50%,var(--bg-hover) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite}
+.btn-ripple{position:relative;overflow:hidden}
+.btn-ripple::after{content:"";position:absolute;top:50%;left:50%;width:5px;height:5px;background:rgba(255,255,255,.3);border-radius:50%;transform:translate(-50%,-50%) scale(0);transition:transform .5s,opacity .5s}
+.btn-ripple:active::after{animation:ripple .6s ease-out}
