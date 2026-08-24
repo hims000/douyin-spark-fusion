@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import threading
+import time
 from datetime import datetime
 from typing import Any
 
@@ -12,6 +14,9 @@ from core.models import get_db
 from .auth import app_error, require_user
 
 router = APIRouter(prefix="/api/accounts", tags=["accounts"])
+
+_qr_sessions: dict[str, dict[str, Any]] = {}
+_qr_sessions_lock = threading.Lock()
 
 
 def _validate_input(value: str, label: str, min_len: int = 1, max_len: int = 500) -> str:
@@ -266,3 +271,129 @@ async def verify_account_login(
             pw.stop()
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+@router.get("/qr-login", summary="Get QR code for login")
+async def get_qr_code():
+    from playwright.async_api import async_playwright
+
+    pw = await async_playwright().start()
+    browser = await pw.chromium.launch(
+        headless=True,
+        args=["--no-sandbox", "--disable-blink-features=AutomationControlled", "--disable-dev-shm-usage", "--disable-gpu"],
+    )
+    ctx = await browser.new_context(
+        viewport={"width": 1280, "height": 800},
+        user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+        locale="zh-CN",
+    )
+    await ctx.add_init_script(
+        "Object.defineProperty(navigator,'webdriver',{get:()=>undefined});window.chrome={runtime:{}};"
+    )
+    page = await ctx.new_page()
+    qr_result = {}
+
+    async def capture(response):
+        if "get_qrcode" in response.url or "get_qr" in response.url:
+            try:
+                body = await response.text()
+                data = json.loads(body)
+                d = data.get("data", {})
+                qr = d.get("qrcode") or d.get("qrcode_url") or d.get("qr_url") or d.get("url")
+                token = d.get("token") or d.get("qrcode_token") or d.get("qr_token")
+                if qr:
+                    qr_result["qr"] = qr
+                    qr_result["token"] = token
+            except Exception:
+                pass
+
+    page.on("response", capture)
+
+    try:
+        await page.goto("https://www.douyin.com/", wait_until="load", timeout=60000)
+        await page.wait_for_timeout(5000)
+
+        await page.evaluate(
+            "()=>{for(const b of document.querySelectorAll('button'))"
+            "{if(b.textContent?.trim()==='登录'){b.click();return}}}"
+        )
+        await page.wait_for_timeout(5000)
+
+        for _ in range(30):
+            if qr_result.get("qr"):
+                break
+            await page.wait_for_timeout(1000)
+
+        if qr_result.get("qr"):
+            qr = qr_result["qr"]
+            token = qr_result.get("token", "")
+            if qr.startswith("data:image"):
+                b64 = qr.split(",", 1)[1]
+            elif qr.startswith("iVBOR"):
+                b64 = qr
+            else:
+                await browser.close()
+                await pw.stop()
+                return {"qr_b64": "", "token": ""}
+
+            with _qr_sessions_lock:
+                _qr_sessions[token] = {
+                    "pw": pw, "browser": browser, "ctx": ctx, "page": page,
+                    "created_at": time.time(),
+                }
+            return {"qr_b64": b64, "token": token}
+        else:
+            await browser.close()
+            await pw.stop()
+    except Exception:
+        await browser.close()
+        await pw.stop()
+
+    return {"qr_b64": "", "token": ""}
+
+
+@router.get("/qr-login/{token}/wait", summary="Wait for QR code scan")
+async def wait_qr_scan(token: str, timeout: int = 300):
+    with _qr_sessions_lock:
+        session = _qr_sessions.pop(token, None)
+    if not session:
+        return {"success": False, "cookies": []}
+
+    pw = session["pw"]
+    browser = session["browser"]
+    ctx = session["ctx"]
+    page = session["page"]
+    qr_status = {"status": "new"}
+
+    async def check_response(response):
+        if "check_qrconnect" in response.url:
+            try:
+                body = await response.text()
+                data = json.loads(body)
+                d = data.get("data", {})
+                status = d.get("status", "")
+                if status:
+                    qr_status["status"] = status
+            except Exception:
+                pass
+
+    page.on("response", check_response)
+
+    try:
+        start = time.time()
+        while time.time() - start < timeout:
+            await page.wait_for_timeout(2000)
+
+            if qr_status["status"] == "confirmed":
+                return {"success": True, "cookies": await ctx.cookies()}
+
+            cookies = await ctx.cookies()
+            for c in cookies:
+                if c["name"] in ("sessionid", "sessionid_ss") and c["value"] and len(c["value"]) > 10:
+                    return {"success": True, "cookies": cookies}
+    finally:
+        page.remove_listener("response", check_response)
+        await browser.close()
+        await pw.stop()
+
+    return {"success": False, "cookies": []}
