@@ -40,3 +40,4 @@
 .result{font-size:12px;margin-top:4px}
 .error-boundary{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3);z-index:9999}
 .error-boundary .card{max-width:400px;text-align:center;animation:fadeInUp .3s ease}
+input[type=checkbox]:disabled{opacity:.4;cursor:not-allowed}

@@ -38,6 +38,7 @@ async def get_settings(user: dict[str, Any] = Depends(require_user)):
             "rate_limit_cooldown": int(all_settings.get("global_rate_limit_cooldown", "45")),
             "retry_delay": int(all_settings.get("global_retry_delay", "45")),
             "allow_registration": all_settings.get("global_allow_registration", "true") == "true",
+            "invite_only": all_settings.get("global_invite_only", "false").lower() == "true",
         }
     return result
 
@@ -63,7 +64,7 @@ async def update_settings(req: Request, user: dict[str, Any] = Depends(require_u
         sys_keys = [
             "schedule_time", "jitter_minutes", "send_gap_min", "send_gap_max",
             "max_friends_per_run", "daily_limit", "rate_limit_cooldown",
-            "retry_delay", "allow_registration",
+            "retry_delay", "allow_registration", "invite_only",
         ]
         for k in sys_keys:
             if k in data:

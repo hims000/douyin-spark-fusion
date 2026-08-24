@@ -22,6 +22,8 @@ class LoginRequest(BaseModel):
 class RegisterRequest(BaseModel):
     username: str
     password: str
+    confirm_password: str = ""
+    invite_code: str = ""
 
 
 def _validate_input(value: str, label: str, min_len: int = 1, max_len: int = 500) -> str:
@@ -107,6 +109,8 @@ async def register(req: RegisterRequest):
         raise app_error("AUTH_003", 403, "注册功能已关闭")
     username = _validate_input(req.username, "用户名", min_len=2, max_len=50)
     password = _validate_input(req.password, "密码", min_len=4, max_len=100)
+    if req.password != req.confirm_password:
+        raise HTTPException(400, "两次密码不一致")
     db = await get_db()
     existing = await db.execute_fetchall(
         "SELECT id FROM users WHERE username=?", (username,)
@@ -114,12 +118,38 @@ async def register(req: RegisterRequest):
     if existing:
         await db.close()
         raise HTTPException(400, "用户名已存在")
+
+    from core.models import get_setting
+
+    invite_only = (await get_setting("global_invite_only", "false")).lower() == "true"
+    if invite_only:
+        if not req.invite_code:
+            await db.close()
+            raise HTTPException(400, "需要邀请码才能注册")
+        code_row = await db.execute_fetchall(
+            "SELECT id, is_used FROM invite_codes WHERE code=?", (req.invite_code.upper(),)
+        )
+        if not code_row:
+            await db.close()
+            raise HTTPException(400, "邀请码无效")
+        if code_row[0]["is_used"]:
+            await db.close()
+            raise HTTPException(400, "邀请码已被使用")
+
     await db.execute(
         "INSERT INTO users(username, password_hash) VALUES(?,?)",
         (username, hash_password(password)),
     )
     await db.commit()
     user_id = (await db.execute_fetchall("SELECT last_insert_rowid() as id"))[0]["id"]
+
+    if invite_only:
+        await db.execute(
+            "UPDATE invite_codes SET is_used=1, used_by=? WHERE code=?",
+            (user_id, req.invite_code.upper()),
+        )
+        await db.commit()
+
     await db.close()
     token, user_data = await _create_session(user_id, username, False)
     return {"token": token, "user": user_data}

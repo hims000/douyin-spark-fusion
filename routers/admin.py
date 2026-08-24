@@ -143,3 +143,48 @@ async def admin_user_group(user_id: int, req: Request, user: dict[str, Any] = De
     await db.commit()
     await db.close()
     return {"success": True}
+
+
+@router.get("/invite-codes", summary="List invite codes")
+async def list_invite_codes(user: dict[str, Any] = Depends(require_admin)):
+    db = await get_db()
+    rows = await db.execute_fetchall(
+        "SELECT ic.*, u.username as used_by_username FROM invite_codes ic LEFT JOIN users u ON ic.used_by = u.id ORDER BY ic.id DESC"
+    )
+    await db.close()
+    return [dict(r) for r in rows]
+
+
+@router.post("/invite-codes", summary="Generate invite codes")
+async def generate_invite_codes(req: Request, user: dict[str, Any] = Depends(require_admin)):
+    data = await req.json()
+    count = min(max(int(data.get("count", 1)), 1), 100)
+    import secrets
+
+    codes = []
+    db = await get_db()
+    for _ in range(count):
+        code = secrets.token_hex(4).upper()
+        await db.execute("INSERT INTO invite_codes(code) VALUES(?)", (code,))
+        codes.append(code)
+    await db.commit()
+    await db.close()
+    return {"success": True, "codes": codes}
+
+
+@router.delete("/invite-codes/{code_id}", summary="Delete invite code")
+async def delete_invite_code(code_id: int, user: dict[str, Any] = Depends(require_admin)):
+    db = await get_db()
+    row = await db.execute_fetchall(
+        "SELECT is_used FROM invite_codes WHERE id=?", (code_id,)
+    )
+    if not row:
+        await db.close()
+        raise HTTPException(404, "邀请码不存在")
+    if row[0]["is_used"]:
+        await db.close()
+        raise HTTPException(400, "邀请码已使用，不可删除")
+    await db.execute("DELETE FROM invite_codes WHERE id=?", (code_id,))
+    await db.commit()
+    await db.close()
+    return {"success": True}

@@ -74,14 +74,16 @@ app.component('login-page',{template:`
 <form class="form" @submit.prevent="submit">
 <input v-model="username" placeholder="用户名" autofocus autocomplete="username"/>
 <input v-model="password" type="password" placeholder="密码" autocomplete="current-password"/>
+<input v-if="isReg" v-model="confirmPassword" type="password" placeholder="确认密码" autocomplete="new-password"/>
+<input v-if="isReg" v-model="inviteCode" placeholder="邀请码（选填）"/>
 <button type="submit" :disabled="loading"><span v-if="loading">...</span><span v-else>{{isReg?'注册':'登录'}}</span></button>
 </form>
 <p class="toggle"><a @click="isReg=!isReg">{{isReg?'已有账号？登录':'没有账号？注册'}}</a></p>
 <p v-if="error" class="error">{{error}}</p>
 </div></div>`,
-setup(props,{emit}){const username=ref(''),password=ref(''),loading=ref(false),error=ref(''),isReg=ref(false);
-const submit=async()=>{if(!username.value||!password.value)return;loading.value=true;error.value='';try{const url=isReg.value?'/auth/register':'/auth/login';const r=await api.post(url,{username:username.value,password:password.value});if(r.data.token){localStorage.setItem('token',r.data.token);localStorage.setItem('user',JSON.stringify(r.data.user));emit('login',r.data.user)}else{error.value=r.data.detail||'操作失败'}}catch(e){error.value='网络错误'}finally{loading.value=false}};
-return{username,password,loading,error,isReg,submit}}});
+setup(props,{emit}){const username=ref(''),password=ref(''),confirmPassword=ref(''),inviteCode=ref(''),loading=ref(false),error=ref(''),isReg=ref(false);
+const submit=async()=>{if(!username.value||!password.value)return;loading.value=true;error.value='';try{if(isReg.value&&password.value!==confirmPassword.value){error.value='两次密码不一致';loading.value=false;return}const url=isReg.value?'/auth/register':'/auth/login';const body={username:username.value,password:password.value};if(isReg.value){body.confirm_password=confirmPassword.value;body.invite_code=inviteCode.value}const r=await api.post(url,body);if(r.data.token){localStorage.setItem('token',r.data.token);localStorage.setItem('user',JSON.stringify(r.data.user));emit('login',r.data.user)}else{error.value=r.data.detail||'操作失败'}}catch(e){error.value='网络错误'}finally{loading.value=false}};
+return{username,password,confirmPassword,inviteCode,loading,error,isReg,submit}}});
 
 app.component('dashboard',{props:['data','logs'],emits:['refresh'],template:`
 <div><h2 class="page-title">首页</h2>
@@ -218,7 +220,7 @@ app.component('settings-page',{emits:['save'],template:`
 <div class="mt-3" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
 <div v-for="f in sysFields" :key="f.key"><label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px">{{f.label}}</label>
 <input v-if="f.type==='time'" v-model="sys[f.key]" type="time" style="width:100%"/>
-<input v-else-if="f.type==='bool'" type="checkbox" v-model="sys[f.key]" style="width:auto"/>
+<input v-else-if="f.type==='bool'" type="checkbox" v-model="sys[f.key]" style="width:auto" :disabled="f.key==='invite_only' && !sys.allow_registration"/>
 <input v-else v-model.number="sys[f.key]" :type="f.type" style="width:100%"/>
 </div>
 </div>
@@ -246,13 +248,23 @@ app.component('settings-page',{emits:['save'],template:`
 <div class="card" style="flex:1;padding:0" v-else><p class="text-muted" style="padding:12px 16px">选择左侧用户组查看成员</p></div>
 </div>
 <div v-if="showEdit" class="mt-3" style="display:flex;gap:8px;align-items:center"><input v-model="editName" placeholder="组名" style="flex:1"/><button class="btn-primary btn-sm" @click="saveEdit" :disabled="!editName.trim()">保存</button><button class="btn-secondary btn-sm" @click="showEdit=false">取消</button></div></div>
+<div v-if="isAdmin" class="card mt-4"><h3 class="card-title">邀请码管理</h3>
+<div class="mt-3" style="display:flex;gap:8px;align-items:center">
+<input v-model.number="inviteCount" type="number" min="1" max="100" style="width:80px" placeholder="数量"/>
+<button class="btn-primary btn-sm" @click="generateInviteCodes">生成邀请码</button>
+</div>
+<div v-if="generatedCodes.length" class="mt-3" style="padding:12px;background:var(--bg-hover);border-radius:8px;font-family:monospace;font-size:13px;display:flex;flex-wrap:wrap;gap:8px">
+<span v-for="c in generatedCodes" :key="c">{{c}}</span>
+</div>
+<div v-if="inviteCodes.length" class="mt-4"><table class="table"><thead><tr><th>邀请码</th><th>状态</th><th>使用者</th><th>创建时间</th><th>操作</th></tr></thead><tbody><tr v-for="ic in inviteCodes" :key="ic.id"><td style="font-family:monospace">{{ic.code}}</td><td><span class="badge" :class="ic.is_used?'badge-amber':'badge-green'">{{ic.is_used?'已使用':'未使用'}}</span></td><td class="text-muted">{{ic.used_by_username||'—'}}</td><td class="text-muted">{{(ic.created_at||'').replace('T',' ').substring(0,19)}}</td><td><button v-if="!ic.is_used" class="btn-danger btn-sm" @click="deleteInviteCode(ic.id)">删除</button></td></tr></tbody></table></div>
+<p v-else class="text-muted mt-4">暂无邀请码</p></div>
 <div class="card mt-4"><h3 class="card-title">关于</h3><p class="text-muted mt-2">Douyin Spark Fusion v{{version}}</p><p class="text-muted">融合 23 个抖音火花项目的最佳实践</p></div></div>`,
 setup(props,{emit}){const settings=reactive({DINGTALK_WEBHOOK:'',FEISHU_WEBHOOK:'',WECOM_WEBHOOK:'',TELEGRAM_BOT_TOKEN:'',TELEGRAM_CHAT_ID:'',BARK_DEVICE_KEY:'',RESEND_API_KEY:'',RESEND_FROM:'',MAIL_TO:''});
-const sys=reactive({schedule_time:'21:00',jitter_minutes:30,send_gap_min:6,send_gap_max:12,max_friends_per_run:20,daily_limit:50,rate_limit_cooldown:45,retry_delay:45,allow_registration:true});
+const sys=reactive({schedule_time:'21:00',jitter_minutes:30,send_gap_min:6,send_gap_max:12,max_friends_per_run:20,daily_limit:50,rate_limit_cooldown:45,retry_delay:45,allow_registration:true,invite_only:false});
 const chEn=reactive({dingtalk:true,feishu:true,wecom:true,telegram:true,bark:true,email:true});
 const testing=ref(''),newAdminPass=ref(''),isAdmin=computed(()=>user.value.is_admin);
 const channels=[{key:'dingtalk',label:'钉钉',fields:[{key:'DINGTALK_WEBHOOK',placeholder:'Webhook URL'}]},{key:'feishu',label:'飞书',fields:[{key:'FEISHU_WEBHOOK',placeholder:'Webhook URL'}]},{key:'wecom',label:'企业微信',fields:[{key:'WECOM_WEBHOOK',placeholder:'Webhook URL'}]},{key:'telegram',label:'Telegram',fields:[{key:'TELEGRAM_BOT_TOKEN',placeholder:'Bot Token'},{key:'TELEGRAM_CHAT_ID',placeholder:'Chat ID'}]},{key:'bark',label:'Bark',fields:[{key:'BARK_DEVICE_KEY',placeholder:'Device Key'}]},{key:'email',label:'Cloud Mail 邮件',fields:[{key:'RESEND_API_KEY',placeholder:'Resend API Key',adminOnly:true},{key:'RESEND_FROM',placeholder:'发件邮箱',adminOnly:true},{key:'MAIL_TO',placeholder:'收件邮箱'}]}];
-const sysFields=[{key:'schedule_time',label:'定时调度时间',type:'time'},{key:'jitter_minutes',label:'波动分钟数',type:'number'},{key:'send_gap_min',label:'发送间隔(最小)',type:'number'},{key:'send_gap_max',label:'发送间隔(最大)',type:'number'},{key:'max_friends_per_run',label:'每轮最大好友',type:'number'},{key:'daily_limit',label:'每日发送上限',type:'number'},{key:'rate_limit_cooldown',label:'限流冷却(分钟)',type:'number'},{key:'retry_delay',label:'重试延迟(分钟)',type:'number'},{key:'allow_registration',label:'允许注册',type:'bool'}];
+const sysFields=[{key:'schedule_time',label:'定时调度时间',type:'time'},{key:'jitter_minutes',label:'波动分钟数',type:'number'},{key:'send_gap_min',label:'发送间隔(最小)',type:'number'},{key:'send_gap_max',label:'发送间隔(最大)',type:'number'},{key:'max_friends_per_run',label:'每轮最大好友',type:'number'},{key:'daily_limit',label:'每日发送上限',type:'number'},{key:'rate_limit_cooldown',label:'限流冷却(分钟)',type:'number'},{key:'retry_delay',label:'重试延迟(分钟)',type:'number'},{key:'allow_registration',label:'允许注册',type:'bool'},{key:'invite_only',label:'仅接受邀请码注册',type:'bool'}];
 const testChannel=async(ch)=>{testing.value=ch.key;try{const r=await api.post('/notify/test',{channel:ch.key});if(r.data?.success)showToast(ch.label+' 测试通知已发送')}catch(e){}finally{testing.value=''}};
 const saveNotifications=()=>{const d={};Object.keys(settings).forEach(k=>{d[k]=settings[k]});emit('save',d)};
 const saveSystem=()=>{const d={};Object.keys(sys).forEach(k=>{d[k]=sys[k]});emit('save',d)};
@@ -269,9 +281,14 @@ const editGroup=g=>{editingId.value=g.id;editName.value=g.name;showEdit.value=tr
 const saveEdit=async()=>{try{await api.put('/admin/groups/'+editingId.value,{name:editName.value.trim()});showEdit.value=false;loadGroups();loadGroupUsers();}catch(e){}};
 const addUserToGroup=async()=>{try{await api.put('/admin/users/'+addUserId.value+'/group',{group_id:selectedGroup.value});addUserId.value=0;loadGroupUsers();loadAllUsers();}catch(e){}};
 const removeUser=async(uid)=>{try{await api.put('/admin/users/'+uid+'/group',{group_id:0});loadGroupUsers();loadAllUsers();}catch(e){}};
+const inviteCodes=ref([]),inviteCount=ref(5),generatedCodes=ref([]);
+const loadInviteCodes=async()=>{try{const r=await api.get('/admin/invite-codes');inviteCodes.value=r.data||[]}catch(e){}};
+const generateInviteCodes=async()=>{try{const r=await api.post('/admin/invite-codes',{count:inviteCount.value||1});generatedCodes.value=r.data?.codes||[];loadInviteCodes()}catch(e){}};
+const deleteInviteCode=async(id)=>{if(!confirm('确认删除？'))return;try{await api.del('/admin/invite-codes/'+id);loadInviteCodes()}catch(e){}};
 const load=async()=>{try{const r=await api.get('/settings');if(r.data?.notifications){Object.keys(settings).forEach(k=>{if(r.data.notifications[k]!==undefined)settings[k]=r.data.notifications[k]})};if(r.data?.system){Object.keys(sys).forEach(k=>{if(r.data.system[k]!==undefined)sys[k]=r.data.system[k]})}}catch(e){}};
-onMounted(()=>{if(isAdmin.value){loadGroups();loadAllUsers()}load()});
-return{settings,sys,chEn,channels,sysFields,testing,newAdminPass,isAdmin,testChannel,saveNotifications,saveSystem,changePass,groups,allUsers,groupUsers,selectedGroup,newGroupName,addUserId,showEdit,editName,editingId,currentGroupName,selectGroup,createGroup,deleteGroup,editGroup,saveEdit,addUserToGroup,removeUser}}});
+onMounted(()=>{if(isAdmin.value){loadGroups();loadAllUsers();loadInviteCodes()}load()});
+return{settings,sys,chEn,channels,sysFields,testing,newAdminPass,isAdmin,testChannel,saveNotifications,saveSystem,changePass,groups,allUsers,groupUsers,selectedGroup,newGroupName,addUserId,showEdit,editName,editingId,currentGroupName,selectGroup,createGroup,deleteGroup,editGroup,saveEdit,addUserToGroup,removeUser,
+inviteCodes,inviteCount,generatedCodes,loadInviteCodes,generateInviteCodes,deleteInviteCode}}});
 
 app.mount('#app')
 </script>

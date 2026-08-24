@@ -134,6 +134,16 @@ async def init_db() -> None:
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         );
 
+        CREATE TABLE IF NOT EXISTS invite_codes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            code TEXT UNIQUE NOT NULL,
+            is_used INTEGER DEFAULT 0,
+            used_by INTEGER,
+            created_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_invite_codes_code ON invite_codes(code);
+
         CREATE INDEX IF NOT EXISTS idx_msg_history_account ON message_history(account_id);
         CREATE INDEX IF NOT EXISTS idx_msg_history_created ON message_history(created_at);
 

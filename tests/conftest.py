@@ -27,7 +27,7 @@ async def client():
 @pytest.fixture
 async def auth_client(client):
     await client.post(
-        "/api/auth/register", json={"username": "testuser", "password": "test1234"}
+        "/api/auth/register", json={"username": "testuser", "password": "test1234", "confirm_password": "test1234"}
     )
     resp = await client.post(
         "/api/auth/login", json={"username": "testuser", "password": "test1234"}

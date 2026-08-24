@@ -7,7 +7,7 @@ import pytest
 async def test_register(client):
     uname = f"test_{uuid.uuid4().hex[:8]}"
     resp = await client.post(
-        "/api/auth/register", json={"username": uname, "password": "pass1234"}
+        "/api/auth/register", json={"username": uname, "password": "pass1234", "confirm_password": "pass1234"}
     )
     assert resp.status_code == 200
     data = resp.json()
@@ -19,7 +19,7 @@ async def test_register(client):
 async def test_login(client):
     uname = f"login_{uuid.uuid4().hex[:8]}"
     await client.post(
-        "/api/auth/register", json={"username": uname, "password": "pass1234"}
+        "/api/auth/register", json={"username": uname, "password": "pass1234", "confirm_password": "pass1234"}
     )
     resp = await client.post(
         "/api/auth/login", json={"username": uname, "password": "pass1234"}
@@ -32,7 +32,7 @@ async def test_login(client):
 async def test_login_wrong_password(client):
     uname = f"wrong_{uuid.uuid4().hex[:8]}"
     await client.post(
-        "/api/auth/register", json={"username": uname, "password": "pass1234"}
+        "/api/auth/register", json={"username": uname, "password": "pass1234", "confirm_password": "pass1234"}
     )
     resp = await client.post(
         "/api/auth/login", json={"username": uname, "password": "wrong"}

@@ -61,6 +61,9 @@ class Settings:
         self.rate_limit_cooldown_minutes = int(
             _env_or("RATE_LIMIT_COOLDOWN_MINUTES", "45")
         )
+        self.invite_only = _parse_bool(
+            _env_or("INVITE_ONLY", "false"), "INVITE_ONLY"
+        )
 
 
 settings = Settings()
