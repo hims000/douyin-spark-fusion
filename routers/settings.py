@@ -5,7 +5,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, Request
 
 from core.models import get_db, hash_password
-from core.notifier import send_notification
+from core.notifier import _invalidate_cache, send_notification
 
 from .auth import require_user
 
@@ -22,7 +22,7 @@ async def get_settings(user: dict[str, Any] = Depends(require_user)):
     notify_keys = [
         "DINGTALK_WEBHOOK", "FEISHU_WEBHOOK", "WECOM_WEBHOOK",
         "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "BARK_DEVICE_KEY",
-        "SMTP_HOST", "SMTP_USER", "SMTP_PASS", "MAIL_TO",
+        "RESEND_API_KEY", "RESEND_FROM", "MAIL_TO",
     ]
     notifications = {k: all_settings.get(f"notify_{k}", "") for k in notify_keys}
 
@@ -50,7 +50,7 @@ async def update_settings(req: Request, user: dict[str, Any] = Depends(require_u
     notify_keys = [
         "DINGTALK_WEBHOOK", "FEISHU_WEBHOOK", "WECOM_WEBHOOK",
         "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "BARK_DEVICE_KEY",
-        "SMTP_HOST", "SMTP_USER", "SMTP_PASS", "MAIL_TO",
+        "RESEND_API_KEY", "RESEND_FROM", "MAIL_TO",
     ]
     for k in notify_keys:
         if k in data:
@@ -79,6 +79,7 @@ async def update_settings(req: Request, user: dict[str, Any] = Depends(require_u
 
     await db.commit()
     await db.close()
+    _invalidate_cache()
     return {"success": True}
 
 
@@ -88,6 +89,7 @@ async def test_notify(req: Request, user: dict[str, Any] = Depends(require_user)
     channel = data.get("channel", "all")
     title = data.get("title", "Test Notification")
     content = data.get("content", "This is a test from Douyin Spark Fusion")
+    _invalidate_cache()
     results = await send_notification(f"[{channel}] {title}", content)
     return {"success": True, "results": str(results)}
 

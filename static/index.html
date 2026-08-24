@@ -206,7 +206,9 @@ app.component('settings-page',{emits:['save'],template:`
 <span style="font-weight:500;font-size:13px">{{ch.label}}</span>
 </div>
 <div v-for="f in ch.fields" :key="f.key" style="flex:1;min-width:0">
+<template v-if="!f.adminOnly||isAdmin">
 <input v-model="settings[f.key]" :placeholder="f.placeholder" style="width:100%;font-size:12px"/>
+</template>
 </div>
 <button class="btn-secondary btn-sm" @click="testChannel(ch)" :disabled="testing===ch.key" style="flex-shrink:0">{{testing===ch.key?'测试中...':'测试'}}</button>
 </div>
@@ -249,7 +251,7 @@ setup(props,{emit}){const settings=reactive({DINGTALK_WEBHOOK:'',FEISHU_WEBHOOK:
 const sys=reactive({schedule_time:'21:00',jitter_minutes:30,send_gap_min:6,send_gap_max:12,max_friends_per_run:20,daily_limit:50,rate_limit_cooldown:45,retry_delay:45,allow_registration:true});
 const chEn=reactive({dingtalk:true,feishu:true,wecom:true,telegram:true,bark:true,email:true});
 const testing=ref(''),newAdminPass=ref(''),isAdmin=computed(()=>user.value.is_admin);
-const channels=[{key:'dingtalk',label:'钉钉',fields:[{key:'DINGTALK_WEBHOOK',placeholder:'Webhook URL'}]},{key:'feishu',label:'飞书',fields:[{key:'FEISHU_WEBHOOK',placeholder:'Webhook URL'}]},{key:'wecom',label:'企业微信',fields:[{key:'WECOM_WEBHOOK',placeholder:'Webhook URL'}]},{key:'telegram',label:'Telegram',fields:[{key:'TELEGRAM_BOT_TOKEN',placeholder:'Bot Token'},{key:'TELEGRAM_CHAT_ID',placeholder:'Chat ID'}]},{key:'bark',label:'Bark',fields:[{key:'BARK_DEVICE_KEY',placeholder:'Device Key'}]},{key:'email',label:'邮件 (Resend)',fields:[{key:'RESEND_API_KEY',placeholder:'Resend API Key'},{key:'RESEND_FROM',placeholder:'发件人'},{key:'MAIL_TO',placeholder:'收件邮箱'}]}];
+const channels=[{key:'dingtalk',label:'钉钉',fields:[{key:'DINGTALK_WEBHOOK',placeholder:'Webhook URL'}]},{key:'feishu',label:'飞书',fields:[{key:'FEISHU_WEBHOOK',placeholder:'Webhook URL'}]},{key:'wecom',label:'企业微信',fields:[{key:'WECOM_WEBHOOK',placeholder:'Webhook URL'}]},{key:'telegram',label:'Telegram',fields:[{key:'TELEGRAM_BOT_TOKEN',placeholder:'Bot Token'},{key:'TELEGRAM_CHAT_ID',placeholder:'Chat ID'}]},{key:'bark',label:'Bark',fields:[{key:'BARK_DEVICE_KEY',placeholder:'Device Key'}]},{key:'email',label:'Cloud Mail 邮件',fields:[{key:'RESEND_API_KEY',placeholder:'Resend API Key',adminOnly:true},{key:'RESEND_FROM',placeholder:'发件邮箱',adminOnly:true},{key:'MAIL_TO',placeholder:'收件邮箱'}]}];
 const sysFields=[{key:'schedule_time',label:'定时调度时间',type:'time'},{key:'jitter_minutes',label:'波动分钟数',type:'number'},{key:'send_gap_min',label:'发送间隔(最小)',type:'number'},{key:'send_gap_max',label:'发送间隔(最大)',type:'number'},{key:'max_friends_per_run',label:'每轮最大好友',type:'number'},{key:'daily_limit',label:'每日发送上限',type:'number'},{key:'rate_limit_cooldown',label:'限流冷却(分钟)',type:'number'},{key:'retry_delay',label:'重试延迟(分钟)',type:'number'},{key:'allow_registration',label:'允许注册',type:'bool'}];
 const testChannel=async(ch)=>{testing.value=ch.key;try{const r=await api.post('/notify/test',{channel:ch.key});if(r.data?.success)showToast(ch.label+' 测试通知已发送')}catch(e){}finally{testing.value=''}};
 const saveNotifications=()=>{const d={};Object.keys(settings).forEach(k=>{d[k]=settings[k]});emit('save',d)};

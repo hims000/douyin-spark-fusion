@@ -2,15 +2,59 @@ import hashlib
 import hmac
 import logging
 import os
-import smtplib
 import time
-from email.mime.image import MIMEImage
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 
 import aiohttp
 
 logger = logging.getLogger("notifier")
+
+_notify_cache: dict[str, str] = {}
+_cache_loaded = False
+
+
+async def _load_notify_config() -> dict[str, str]:
+    global _notify_cache, _cache_loaded
+    if _cache_loaded:
+        return _notify_cache
+
+    config = {}
+    try:
+        from .models import get_db
+
+        db = await get_db()
+        rows = await db.execute_fetchall(
+            "SELECT key, value FROM settings WHERE key LIKE 'notify_%'"
+        )
+        await db.close()
+        for r in rows:
+            key = r["key"].replace("notify_", "", 1)
+            v = r["value"]
+            if v:
+                config[key] = v
+    except Exception:
+        pass
+
+    for k in (
+        "DINGTALK_WEBHOOK", "DINGTALK_SECRET",
+        "FEISHU_WEBHOOK", "FEISHU_SECRET",
+        "WECOM_WEBHOOK",
+        "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID",
+        "BARK_DEVICE_KEY",
+        "RESEND_API_KEY", "RESEND_FROM", "MAIL_TO",
+    ):
+        if k not in config or not config[k]:
+            env_val = os.getenv(k, "")
+            if env_val:
+                config[k] = env_val
+
+    _notify_cache = config
+    _cache_loaded = True
+    return config
+
+
+def _invalidate_cache():
+    global _cache_loaded
+    _cache_loaded = False
 
 
 async def send_dingtalk(webhook, secret, title, content):
@@ -60,30 +104,14 @@ async def send_bark(key, title, content, bark_url="https://api.day.app"):
         return await r.json()
 
 
-async def send_email(host, port, user, password, to, subject, body, attachments=None):
-    msg = MIMEMultipart()
-    msg["From"] = user
-    msg["To"] = to
-    msg["Subject"] = subject
-    msg.attach(MIMEText(body, "html", "utf-8"))
-    if attachments:
-        for path in attachments:
-            with open(path, "rb") as f:
-                img = MIMEImage(f.read())
-                img.add_header(
-                    "Content-Disposition", "attachment", filename=os.path.basename(path)
-                )
-                msg.attach(img)
-    with smtplib.SMTP_SSL(host, port) as server:
-        server.login(user, password)
-        server.sendmail(user, [to], msg.as_string())
-
-
 async def send_resend(api_key, sender, to, subject, html):
     payload = {"from": sender, "to": [to], "subject": subject, "html": html}
     async with aiohttp.ClientSession() as s, s.post(
         "https://api.resend.com/emails",
-        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
         json=payload,
     ) as r:
         data = await r.json()
@@ -93,72 +121,54 @@ async def send_resend(api_key, sender, to, subject, html):
 
 
 async def send_notification(title, content, screenshots=None):
-    """统一通知入口，根据环境变量自动启用已配置的通知渠道。失败隔离。"""
+    """统一通知入口。优先从 DB settings 表读取配置，回退到环境变量。"""
+    cfg = await _load_notify_config()
+
     tasks = []
-    if os.getenv("DINGTALK_WEBHOOK") and os.getenv("DINGTALK_SECRET"):
+    if cfg.get("DINGTALK_WEBHOOK") and cfg.get("DINGTALK_SECRET"):
         tasks.append(
             send_dingtalk(
-                os.getenv("DINGTALK_WEBHOOK"),
-                os.getenv("DINGTALK_SECRET"),
-                title,
-                content,
+                cfg["DINGTALK_WEBHOOK"], cfg["DINGTALK_SECRET"], title, content
             )
         )
-    if os.getenv("FEISHU_WEBHOOK") and os.getenv("FEISHU_SECRET"):
+    if cfg.get("FEISHU_WEBHOOK") and cfg.get("FEISHU_SECRET"):
         tasks.append(
             send_feishu(
-                os.getenv("FEISHU_WEBHOOK"), os.getenv("FEISHU_SECRET"), title, content
+                cfg["FEISHU_WEBHOOK"], cfg["FEISHU_SECRET"], title, content
             )
         )
-    if os.getenv("WECOM_WEBHOOK"):
-        tasks.append(send_wecom(os.getenv("WECOM_WEBHOOK"), content))
-    if os.getenv("TELEGRAM_BOT_TOKEN") and os.getenv("TELEGRAM_CHAT_ID"):
+    if cfg.get("WECOM_WEBHOOK"):
+        tasks.append(send_wecom(cfg["WECOM_WEBHOOK"], content))
+    if cfg.get("TELEGRAM_BOT_TOKEN") and cfg.get("TELEGRAM_CHAT_ID"):
         tasks.append(
             send_telegram(
-                os.getenv("TELEGRAM_BOT_TOKEN"), os.getenv("TELEGRAM_CHAT_ID"), content
+                cfg["TELEGRAM_BOT_TOKEN"], cfg["TELEGRAM_CHAT_ID"], content
             )
         )
-    if os.getenv("BARK_DEVICE_KEY"):
+    if cfg.get("BARK_DEVICE_KEY"):
         tasks.append(
             send_bark(
-                os.getenv("BARK_DEVICE_KEY"),
+                cfg["BARK_DEVICE_KEY"],
                 title,
                 content,
                 os.getenv("BARK_URL", "https://api.day.app"),
             )
         )
-    if os.getenv("RESEND_API_KEY") and os.getenv("MAIL_TO"):
+    if cfg.get("RESEND_API_KEY") and cfg.get("MAIL_TO"):
         tasks.append(
             send_resend(
-                os.getenv("RESEND_API_KEY"),
-                os.getenv("RESEND_FROM", "admin@hims.ccwu.cc"),
-                os.getenv("MAIL_TO"),
+                cfg["RESEND_API_KEY"],
+                cfg.get("RESEND_FROM", "admin@hims.ccwu.cc"),
+                cfg["MAIL_TO"],
                 title,
                 content,
             )
         )
-    elif (
-        os.getenv("SMTP_HOST")
-        and os.getenv("SMTP_USER")
-        and os.getenv("SMTP_PASS")
-        and os.getenv("MAIL_TO")
-    ):
-        tasks.append(
-            send_email(
-                os.getenv("SMTP_HOST"),
-                int(os.getenv("SMTP_PORT", "465")),
-                os.getenv("SMTP_USER"),
-                os.getenv("SMTP_PASS"),
-                os.getenv("MAIL_TO"),
-                title,
-                content,
-                screenshots,
-            )
-        )
+
     results = []
     for t in tasks:
         try:
             results.append(await t)
         except Exception as e:
-            logger.warning(f"Notification failed: {type(t).__name__}: {e}")
+            logger.warning("Notification failed: %s: %s", type(t).__name__, e)
     return results
