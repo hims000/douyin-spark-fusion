@@ -14,7 +14,7 @@ const loadFriends=async(accId)=>{try{const r=await api.get('/friends?account_id=
 const loadTasks=async()=>{try{const r=await api.get('/tasks');taskList.value=r.data||[]}catch(e){}};
 const loadHistory=async(friendName='')=>{try{const r=await api.get('/messages/history?friend_name='+encodeURIComponent(friendName)+'&limit=200');historyList.value=r.data||[]}catch(e){}};
 const uploadCookies=async(accId,cookies)=>{try{await api.post('/accounts/'+accId+'/cookies',{cookies});showToast('Cookie上传成功');loadAccounts()}catch(e){showToast('上传失败','error')}};
-const syncFriends=async(accId)=>{try{await api.post('/friends/sync',{account_id:accId});showToast('同步完成');loadFriends(accId)}catch(e){showToast('同步失败','error')}};
+const syncFriends=async(accId)=>{try{const r=await api.post('/friends/sync',{account_id:accId});if(r.data?.success){showToast('同步完成');loadFriends(accId);return r.data}else{showToast(r.data?.error||'同步失败','error');return r.data}}catch(e){showToast('同步失败','error');return{success:false,error:'网络错误'}}};
 const sendMessage=async(accId,name,msg)=>{try{const r=await api.post('/messages/send',{account_id:accId,friend_name:name,message:msg||'续火花🔥'});showToast(r.data?.success?'发送成功':'发送失败',r.data?.success?'success':'error')}catch(e){showToast('发送失败','error')}};
 const createTask=async(t)=>{try{await api.post('/tasks',t);showToast('任务创建成功');loadTasks()}catch(e){showToast('创建失败','error')}};
 const deleteTask=async(id)=>{try{await api.del('/tasks/'+id);showToast('已删除');loadTasks()}catch(e){showToast('删除失败','error')}};

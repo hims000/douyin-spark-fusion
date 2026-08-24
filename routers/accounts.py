@@ -137,7 +137,23 @@ async def upload_cookies(
     )
     await db.commit()
     await db.close()
-    return {"success": True, "cookie_count": len(validated)}
+
+    import asyncio
+    from concurrent.futures import ThreadPoolExecutor
+
+    from core.automation import extract_logged_in_nickname
+
+    loop = asyncio.get_running_loop()
+    nickname = await loop.run_in_executor(
+        ThreadPoolExecutor(max_workers=1), extract_logged_in_nickname, validated, None
+    )
+    if nickname:
+        db = await get_db()
+        await db.execute("UPDATE accounts SET name=? WHERE id=?", (nickname, account_id))
+        await db.commit()
+        await db.close()
+
+    return {"success": True, "cookie_count": len(validated), "nickname": nickname if nickname else None}
 
 
 @router.post("/{account_id}/storage-state", summary="Upload storage state")
@@ -193,15 +209,34 @@ async def verify_account_login(
         return {"success": False, "error": "未配置登录凭据"}
 
     try:
-        from core.automation import DOUYIN_CHAT_URL, launch_browser
+        from core.automation import (
+            DOUYIN_CHAT_URL,
+            check_login,
+            launch_browser,
+        )
 
         browser, context, page = launch_browser(cookies=cookies, storage_state=storage_state)
         try:
             page.goto(DOUYIN_CHAT_URL, timeout=30000, wait_until="domcontentloaded")
             page.wait_for_timeout(8000)
-            from core.automation import check_login
-
             logged, why = check_login(page)
+            if logged:
+                nickname = page.evaluate("""
+                    () => {
+                        const items = document.querySelectorAll('.conversationConversationItemtitle');
+                        if (items.length > 0) {
+                            const name = (items[0].textContent || '').trim();
+                            if (name && name.length > 0 && name.length < 30) return name;
+                        }
+                        return null;
+                    }
+                """)
+                if nickname:
+                    db = await get_db()
+                    await db.execute("UPDATE accounts SET name=? WHERE id=?", (nickname, account_id))
+                    await db.commit()
+                    await db.close()
+                    return {"success": True, "nickname": nickname}
             return {"success": logged, "error": None if logged else why}
         finally:
             context.close()

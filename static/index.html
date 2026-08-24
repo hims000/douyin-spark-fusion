@@ -137,7 +137,7 @@ const filtered=computed(()=>{if(!search.value)return adminRows.value;const s=sea
 const addAccount=async()=>{try{await api.post('/accounts',{name:'账号 '+(props.accounts.length+1),phone:''});emit('refresh')}catch(e){}};
 const delAccount=async(id)=>{if(!confirm('确认删除？'))return;await api.del('/accounts/'+id);emit('refresh')};
 const importCookie=(id)=>{showCookie.value=id;cookieJson.value=''};
-const saveCookie=async(id)=>{try{const c=JSON.parse(cookieJson.value);emit('upload',id,c);showCookie.value=null;cookieJson.value=''}catch(e){alert('JSON格式错误')}};
+const saveCookie=async(id)=>{try{const c=JSON.parse(cookieJson.value);const r=await api.post('/accounts/'+id+'/cookies',{cookies:c});showToast(r.data?.nickname?'Cookie上传成功，昵称: '+r.data.nickname:'Cookie上传成功');showCookie.value=null;cookieJson.value='';emit('refresh')}catch(e){alert('JSON格式错误')}};
 const loadAdminAccounts=async()=>{try{const r=await api.get('/admin/accounts');adminRows.value=r.data||[]}catch(e){}};
 const toggleCheck=id=>{if(checkedIds.value.includes(id))checkedIds.value=checkedIds.value.filter(i=>i!==id);else checkedIds.value=[...checkedIds.value,id]};
 const toggleAll=()=>{if(allChecked.value)checkedIds.value=[];else checkedIds.value=filtered.value.map(a=>a.id)};
@@ -149,13 +149,15 @@ onMounted(()=>{if(isAdmin.value)loadAdminAccounts()});
 return{showCookie,cookieJson,addAccount,delAccount,importCookie,saveCookie,isAdmin,adminRows,checkedIds,search,allChecked,filtered,toggleCheck,toggleAll,batchDelete,batchToggle,delOne,toggleOne}}});
 
 app.component('friends-page',{props:['accounts','friends'],emits:['sync','send'],template:`
-<div><div class="page-header"><h2 class="page-title">好友列表</h2><div class="header-actions"><select v-model="selectedAccount" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 12px;outline:none"><option :value="0">选择账号</option><option v-for="a in accounts" :key="a.id" :value="a.id">{{a.name}}</option></select><button class="btn-secondary" @click="$emit('sync',selectedAccount)" :disabled="!selectedAccount||syncing">{{syncing?'同步中...':'同步好友'}}</button></div></div>
+<div><div class="page-header"><h2 class="page-title">好友列表</h2><div class="header-actions"><select v-model="selectedAccount" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 12px;outline:none"><option :value="0">选择账号</option><option v-for="a in accounts" :key="a.id" :value="a.id">{{a.name}}</option></select><button class="btn-secondary" @click="doSync" :disabled="!selectedAccount||syncing">{{syncing?'同步中...':'同步好友'}}</button></div></div>
 <div v-if="!selectedAccount" class="text-muted mt-4">请先选择账号</div>
 <div v-else-if="friends.length===0" class="text-muted mt-4">暂无好友，请点击"同步好友"</div>
+<div v-if="syncError" class="text-red mt-3" style="padding:8px 12px;border:1px solid var(--red);border-radius:6px;background:rgba(220,38,38,.05)">{{syncError}}</div>
 <div v-else class="mt-4"><div class="friend-grid"><div class="friend-card stagger-item" v-for="(f,i) in friends" :key="f.id" :style="{animationDelay:i*0.04+'s'}"><div class="friend-row"><div class="friend-name">{{f.name}}</div><div class="friend-meta"><span class="badge badge-amber" v-if="f.spark_days">{{f.spark_days}}天</span><button class="btn-primary btn-sm" @click="doSend(f.name)" :disabled="sending===f.name">{{sending===f.name?'发送中':'发送'}}</button></div></div><p v-if="results[f.name]" class="result" :class="results[f.name]?'text-green':'text-red'">{{results[f.name]}}</p></div></div></div></div>`,
-setup(props,{emit}){const selectedAccount=ref(0),sending=ref(''),syncing=ref(false),results=reactive({});
+setup(props,{emit}){const selectedAccount=ref(0),sending=ref(''),syncing=ref(false),results=reactive({}),syncError=ref('');
+const doSync=async()=>{if(!selectedAccount.value)return;syncing.value=true;syncError.value='';try{const r=await syncFriends(selectedAccount.value);if(r&&!r.success)syncError.value=r.error||'同步失败'}finally{syncing.value=false}};
 const doSend=async(name)=>{sending.value=name;try{await emit('send',selectedAccount.value,name);results[name]='已发送'}catch(e){results[name]='失败'}finally{sending.value=''}};
-return{selectedAccount,sending,syncing,results,doSend}}});
+return{selectedAccount,sending,syncing,results,syncError,doSync,doSend}}});
 
 app.component('tasks-page',{props:['accounts','tasks','friends'],emits:['refresh','create','delete','run'],template:`
 <div><div class="page-header"><h2 class="page-title">定时任务</h2><button class="btn-primary" @click="showForm=true">+ 新建任务</button></div>

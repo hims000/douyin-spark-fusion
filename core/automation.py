@@ -863,6 +863,10 @@ def fetch_chat_contacts(
             result["error"] = why
             return result
 
+        if _any_visible(page, RISK_MARKERS, timeout_ms=2000):
+            result["error"] = "检测到安全验证页面，请手动完成验证"
+            return result
+
         extract_js = """
             () => {
                 const out = [];
@@ -886,7 +890,11 @@ def fetch_chat_contacts(
                     ".conversationConversationItemtitle", timeout=45000
                 )
             except Exception:
-                logger.info("第 %s 次等待联系人列表超时", attempt + 1)
+                logger.info("第 %s 次等待联系人列表超时，页面URL: %s", attempt + 1, page.url)
+                try:
+                    logger.info("页面标题: %s", page.title())
+                except Exception:
+                    pass
 
             stable = 0
             for _ in range(20):
@@ -926,6 +934,39 @@ def fetch_chat_contacts(
             except Exception:
                 pass
     return result
+
+
+def extract_logged_in_nickname(
+    cookies: list[dict[str, Any]] | None = None,
+    storage_state: dict[str, Any] | None = None,
+) -> str | None:
+    context = None
+    try:
+        browser, context, page = launch_browser(cookies=cookies, storage_state=storage_state)
+        page.goto(DOUYIN_CHAT_URL, timeout=30000, wait_until="domcontentloaded")
+        page.wait_for_timeout(8000)
+        logged, _ = check_login(page)
+        if not logged:
+            return None
+        nickname = page.evaluate("""
+            () => {
+                const items = document.querySelectorAll('.conversationConversationItemtitle');
+                if (items.length > 0) {
+                    const name = (items[0].textContent || '').trim();
+                    if (name && name.length > 0 && name.length < 30) return name;
+                }
+                return null;
+            }
+        """)
+        return nickname if nickname else None
+    except Exception:
+        return None
+    finally:
+        if context:
+            try:
+                context.close()
+            except Exception:
+                pass
 
 
 def run_send_task(
