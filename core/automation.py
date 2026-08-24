@@ -1035,20 +1035,29 @@ def run_send_task(
     if not cookies and not storage_state:
         return False, "未配置登录凭据"
 
-    cookies_hash = _compute_cookies_hash(cookies) if cookies else ""
-    cached = _get_cached_browser(cookies_hash)
     context = None
     page = None
-    browser_ = None
+    browser = None
+    pw = None
 
     try:
-        if cached:
-            _, browser_, context = cached
-            page = context.new_page()
-        else:
-            browser_, context, page = launch_browser(
-                cookies=cookies, storage_state=storage_state
+        pw = sync_playwright().start()
+        browser = pw.chromium.launch(
+            headless=settings.headless,
+            args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
+        )
+        if storage_state and isinstance(storage_state, (dict, str)):
+            context = browser.new_context(
+                storage_state=storage_state,
+                viewport={"width": 1366, "height": 768},
             )
+        else:
+            context = browser.new_context(
+                viewport={"width": 1366, "height": 768},
+            )
+            if cookies:
+                context.add_cookies(_normalize_cookies(cookies))
+        page = context.new_page()
 
         goto_ok = False
         for attempt in range(3):
@@ -1093,8 +1102,18 @@ def run_send_task(
                 page.close()
             except Exception:
                 pass
-        if not cached and context and browser_:
-            pool = _get_thread_pool()
-            pw = pool.get("playwright")
-            if pw:
-                _set_cached_browser(cookies_hash, pw, browser_, context)
+        if context:
+            try:
+                context.close()
+            except Exception:
+                pass
+        if browser:
+            try:
+                browser.close()
+            except Exception:
+                pass
+        if pw:
+            try:
+                pw.stop()
+            except Exception:
+                pass
