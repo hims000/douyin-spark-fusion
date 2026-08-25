@@ -438,13 +438,11 @@ async def save_qr_login(token: str, req: Request, user: dict[str, Any] = Depends
             () => {
                 const out = [];
                 const seen = new Set();
-                document.querySelectorAll('.conversationConversationItemtitle').forEach(t => {
+                document.querySelectorAll('[class*="item-header-name-"]').forEach(t => {
                     const name = (t.textContent || '').trim();
                     if (!name || seen.has(name)) return;
                     seen.add(name);
-                    const wrap = t.parentElement;
-                    const s = wrap ? wrap.querySelector('.commonStreaknormalText') : null;
-                    out.push({ name: name, streak: s ? (s.textContent || '').trim() : '' });
+                    out.push({ name: name, streak: '' });
                 });
                 return out;
             }

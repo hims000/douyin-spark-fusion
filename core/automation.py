@@ -373,8 +373,10 @@ def check_login(page: Page) -> tuple[bool, str]:
             continue
 
     cookies = page.context.cookies()
-    if not any(c["name"].startswith("sessionid") for c in cookies):
-        return False, "未检测到 sessionid Cookie"
+    if not any(c["name"].startswith("sessionid") for c in cookies) and not any(
+        c["name"] == "passport_csrf_token" for c in cookies
+    ):
+        return False, "未检测到登录 Cookie"
     return True, "ok"
 
 
@@ -589,7 +591,21 @@ def _confirm_outgoing_message(
 
 
 def send_text(page: Page, content: str) -> None:
-    editor = page.locator('xpath=//div[contains(@class, "chat-input-")]//div[@contenteditable="true"]').first
+    editor = None
+    for sel in (
+        'xpath=//div[contains(@class, "chat-input-")]//div[@contenteditable="true"]',
+        'xpath=(//div[@contenteditable="true"])[last()]',
+        'xpath=//div[@contenteditable="true" and @role="textbox"]',
+    ):
+        try:
+            loc = page.locator(sel).first
+            if loc.count():
+                editor = loc
+                break
+        except Exception:
+            continue
+    if editor is None:
+        editor = page.locator('[contenteditable="true"]').first
     editor.click()
     page.wait_for_timeout(400)
     page.keyboard.press("Control+A")
@@ -696,7 +712,21 @@ def open_and_send_message(
     dry_run: bool = False,
 ) -> tuple[bool, str]:
     try:
-        search = page.get_by_placeholder("搜索", exact=False).first
+        search = None
+        for sel in (
+            'xpath=//input[@placeholder]',
+            '[role="textbox"]',
+            'xpath=//div[@contenteditable="true"]',
+        ):
+            try:
+                loc = page.locator(sel).first
+                if loc.count():
+                    search = loc
+                    break
+            except Exception:
+                continue
+        if search is None:
+            search = page.get_by_placeholder("搜索", exact=False).first
         search.click()
         search.fill("")
         page.wait_for_timeout(500)
@@ -921,13 +951,11 @@ def fetch_chat_contacts(
             () => {
                 const out = [];
                 const seen = new Set();
-                document.querySelectorAll('.conversationConversationItemtitle').forEach(t => {
+                document.querySelectorAll('[class*="item-header-name-"]').forEach(t => {
                     const name = (t.textContent || '').trim();
                     if (!name || seen.has(name)) return;
                     seen.add(name);
-                    const wrap = t.parentElement;
-                    const s = wrap ? wrap.querySelector('.commonStreaknormalText') : null;
-                    out.push({ name: name, streak: s ? (s.textContent || '').trim() : '' });
+                    out.push({ name: name, streak: '' });
                 });
                 return out;
             }
@@ -937,7 +965,7 @@ def fetch_chat_contacts(
         for attempt in range(3):
             try:
                 page.wait_for_selector(
-                    ".conversationConversationItemtitle", timeout=15000
+                    '[class*="item-header-name-"]', timeout=15000
                 )
             except Exception:
                 logger.info("第 %s 次等待联系人列表超时，页面URL: %s", attempt + 1, page.url)
