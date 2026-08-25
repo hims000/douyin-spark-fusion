@@ -83,7 +83,7 @@ async def sync_friends(req: Request, user: dict[str, Any] = Depends(require_user
     try:
         result = await asyncio.wait_for(
             loop.run_in_executor(
-                _friends_executor, fetch_chat_contacts, None, storage_state, account_id
+                _friends_executor, fetch_chat_contacts, None, storage_state
             ),
             timeout=120,
         )

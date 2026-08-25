@@ -28,33 +28,11 @@ _browser_pool: dict[str, Any] = {}
 _browser_cache: dict[str, tuple] = {}
 _browser_cache_lock = threading.Lock()
 _thread_local = threading.local()
-_session_cache: dict[int, tuple] = {}
-_session_cache_lock = threading.Lock()
 
 def _get_thread_pool() -> dict[str, Any]:
     if not hasattr(_thread_local, "browser_pool"):
         _thread_local.browser_pool = {}
     return _thread_local.browser_pool
-
-
-def cache_browser_session(account_id: int, pw, browser, context):
-    with _session_cache_lock:
-        _session_cache[account_id] = (pw, browser, context)
-
-
-def get_cached_browser_session(account_id: int):
-    with _session_cache_lock:
-        return _session_cache.get(account_id)
-
-
-def clear_cached_browser_session(account_id: int):
-    with _session_cache_lock:
-        old = _session_cache.pop(account_id, None)
-        if old:
-            try:
-                old[2].close()
-            except Exception:
-                pass
 
 
 def _get_cached_browser(cookies_hash: str):
