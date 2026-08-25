@@ -83,7 +83,7 @@ def _compute_cookies_hash(cookies: list[dict[str, Any]]) -> str:
 
 TEMPLATE_REGEX = re.compile(r"\{\{(\w+)\}\}")
 
-DOUYIN_CHAT_URL = "https://www.douyin.com/chat"
+DOUYIN_CHAT_URL = "https://creator.douyin.com/creator-micro/data/following/chat"
 STATE_PATH = DATA_DIR / "state.json"
 
 LOGIN_MARKERS = (
@@ -589,7 +589,7 @@ def _confirm_outgoing_message(
 
 
 def send_text(page: Page, content: str) -> None:
-    editor = page.locator('[contenteditable="true"]').first
+    editor = page.locator('xpath=//div[contains(@class, "chat-input-")]//div[@contenteditable="true"]').first
     editor.click()
     page.wait_for_timeout(400)
     page.keyboard.press("Control+A")
